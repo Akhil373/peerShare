@@ -45,3 +45,4 @@ cd webrtc-share && pnpm i && pnpm start
 - [ ] connection indication on remote peer
 - [ ] clean up status bar
 - [ ] multi-file support
+- [ ] show transfer speeds
