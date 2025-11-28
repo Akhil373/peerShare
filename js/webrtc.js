@@ -248,7 +248,7 @@ export async function sendFiles(dc, fileMetadata) {
                 dom.fileProg.textContent =
                     offset === file.size
                         ? "File Sent!"
-                        : `File ${index} - ${progress.toFixed(1)}%`;
+                        : `File ${index + 1} - ${progress.toFixed(1)}%`;
             }
             await waitForAck(dc);
             if (offset === file.size) logMessage(`Sent file: ${file.name}`);
