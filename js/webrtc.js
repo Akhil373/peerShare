@@ -95,6 +95,7 @@ export function attachDcHandler(channel) {
                 if (msg.type === "fileMeta") {
                     requestLock();
                     receivedfileMetadata = {
+                        fileIndex: msg.fileIndex,
                         fileName: msg.fileName,
                         fileType: msg.fileType,
                         fileSize: msg.fileSize,
@@ -122,7 +123,7 @@ export function attachDcHandler(channel) {
                     (receivedBytes / receivedfileMetadata.fileSize) * 100,
                 );
                 dom.fileProgDiv.classList.remove("hidden");
-                dom.fileProg.textContent = `${percent.toFixed(1)}%`;
+                dom.fileProg.textContent = `File ${receivedfileMetadata.fileIndex + 1} - ${percent.toFixed(1)}%`;
                 dom.progFill.style.width = `${percent}%`;
             }
             if (receivedBytes >= receivedfileMetadata.fileSize) {
@@ -176,6 +177,7 @@ export function attachDcHandler(channel) {
 
         receivedfileMetadata = null;
         receivedBytes = 0;
+        channel.send(JSON.stringify({ type: "file-ack" }));
         releaseLock();
     }
 
@@ -195,8 +197,8 @@ export function sendDcMessage(dc) {
 }
 
 export async function sendFiles(dc, fileMetadata) {
-    const file = dom.fileInput.files[0];
-    if (!file) {
+    const files = dom.fileInput.files;
+    if (!files) {
         logMessage("Please select a file!");
         return;
     }
@@ -205,48 +207,74 @@ export async function sendFiles(dc, fileMetadata) {
     const HIGH_WATER_MARK = 1024 * 1024;
     const LOW_WATER_MARK = 256 * 1024;
     dc.bufferedAmountLowThreshold = LOW_WATER_MARK;
-    let offset = 0;
-
-    fileMetadata = {
-        fileName: file.name,
-        fileType: file.type,
-        fileSize: file.size,
-    };
-    const metadata = {
-        type: "fileMeta",
-        ...fileMetadata,
-    };
-    dc.send(JSON.stringify(metadata));
 
     try {
-        while (offset < file.size) {
-            const end = Math.min(offset + CHUNK_SIZE, file.size);
-            const chunk = file.slice(offset, end);
-            const arrayBuf = await chunk.arrayBuffer();
+        for (const [index, file] of Array.from(files).entries()) {
+            let offset = 0;
+            console.log(index);
 
-            if (dc.bufferedAmount > HIGH_WATER_MARK) {
-                await new Promise((resolve, reject) => {
-                    const onLow = () => resolve();
-                    const onClose = () => reject(new Error("DataChannel closed"));
-                    dc.addEventListener("bufferedamountlow", onLow, { once: true });
-                    dc.addEventListener("close", onClose, { once: true });
-                });
+            fileMetadata = {
+                fileIndex: index,
+                fileName: file.name,
+                fileType: file.type,
+                fileSize: file.size,
+            };
+            const metadata = {
+                type: "fileMeta",
+                ...fileMetadata,
+            };
+            dc.send(JSON.stringify(metadata));
+
+            while (offset < file.size) {
+                const end = Math.min(offset + CHUNK_SIZE, file.size);
+                const chunk = file.slice(offset, end);
+                const arrayBuf = await chunk.arrayBuffer();
+
+                if (dc.bufferedAmount > HIGH_WATER_MARK) {
+                    await new Promise((resolve, reject) => {
+                        const onLow = () => resolve();
+                        const onClose = () => reject(new Error("DataChannel closed"));
+                        dc.addEventListener("bufferedamountlow", onLow, { once: true });
+                        dc.addEventListener("close", onClose, { once: true });
+                    });
+                }
+
+                dc.send(arrayBuf);
+                offset = end;
+
+                dom.fileProgDiv.classList.remove("hidden");
+                const progress = (offset / file.size) * 100;
+                dom.progFill.style.width = `${progress}%`;
+                dom.fileProg.textContent =
+                    offset === file.size
+                        ? "File Sent!"
+                        : `File ${index} - ${progress.toFixed(1)}%`;
             }
-
-            dc.send(arrayBuf);
-            offset = end;
-
-            dom.fileProgDiv.classList.remove("hidden");
-            const progress = (offset / file.size) * 100;
-            dom.progFill.style.width = `${progress}%`;
-            dom.fileProg.textContent =
-                offset === file.size ? "File Sent!" : `${progress.toFixed(1)}%`;
+            await waitForAck(dc);
+            if (offset === file.size) logMessage(`Sent file: ${file.name}`);
         }
-        if (offset === file.size) logMessage(`Sent file: ${file.name}`);
     } finally {
         releaseLock();
         fileMetadata = null;
     }
+}
+
+function waitForAck(dc) {
+    return new Promise((resolve) => {
+        const handler = (event) => {
+            if (typeof event.data !== "string") return;
+
+            try {
+                const msg = JSON.parse(event.data);
+                if (msg.type === "file-ack") {
+                    dc.removeEventListener("message", handler);
+                    resolve();
+                }
+            } catch (err) { }
+        };
+
+        dc.addEventListener("message", handler);
+    });
 }
 
 export async function makeCall(pc, onDataChannel) {
