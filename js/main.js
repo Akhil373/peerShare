@@ -307,8 +307,25 @@ document.getElementById("lan-btn").onclick = () => {
     location.href = "?mode=lan&roomId=lan";
 };
 
+dom.dropZone.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    dom.dropZone.classList.add("bg-[#473629]");
+});
+
+dom.dropZone.addEventListener("dragleave", (e) => {
+    e.preventDefault();
+    dom.dropZone.classList.remove("bg-[#473629]");
+});
+
+dom.dropZone.addEventListener("drop", (e) => {
+    e.preventDefault();
+    dom.fileInput.files = e.dataTransfer.files;
+    dom.fileInput.dispatchEvent(new Event("change"));
+    dom.dropZone.classList.remove("bg-[#473629]");
+});
+
 dom.fileInput.addEventListener("change", () => {
-    const file = dom.fileInput.files[0];
+    const file = dom.fileInput.files;
     if (file.size > 1 * 1024 * 1024 * 1024) {
         dom.notify.textContent = `Caution: Sending large files will use significant memory on the receiver's device.`;
         dom.notify.classList.remove("hidden");
