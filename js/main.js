@@ -1,6 +1,6 @@
 import * as dom from "./dom.js";
 import { getUserDetails, requestLock } from "./utils.js";
-import { updatePeersList } from "./ui.js";
+import { updatePeersList, updateWsStatus } from "./ui.js";
 import {
     connectWebsocket,
     sendWsMessage,
@@ -38,6 +38,7 @@ function generateCode(len = 6) {
 }
 
 function handleWsOpen() {
+    updateWsStatus(true);
     const { browser, deviceType } = getUserDetails();
     const emoji =
         deviceType === "Mobile" ? "📱" : deviceType === "Tablet" ? "📱" : "💻";
@@ -232,10 +233,6 @@ dom.shareBtn.addEventListener("click", () => {
     document.getElementById("room-id").textContent = ROOM_ID;
 });
 
-document.getElementById("exit-room").addEventListener("click", () => {
-    window.location.href = "";
-});
-
 dom.shareModal.addEventListener("click", (e) => {
     if (e.target === dom.shareModal) dom.shareModal.classList.add("hidden");
 });
@@ -343,6 +340,7 @@ document.addEventListener("visibilitychange", () => {
 });
 
 // --- initial setup logic-
+updateWsStatus(false);
 startWebsocket();
 if (isLAN) dom.shareBtn.classList.add("hidden");
 if (urlRoom) {

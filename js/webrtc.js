@@ -42,9 +42,6 @@ export function initPeerConnection(isLAN, iceCallback, dcCallback) {
                 "error",
             );
         } else if (pc.iceConnectionState === "connected") {
-            dom.connectBtn.textContent = "Connected";
-            dom.connectBtn.disabled = true;
-            dom.msgPanel.classList.remove("hidden");
             logMessage("Peer-to-peer connection established!", "info");
         }
     };
@@ -214,6 +211,7 @@ export async function sendFiles(dc, fileMetadata) {
     try {
         for (const [index, file] of Array.from(files).entries()) {
             let offset = 0;
+            console.log(index);
 
             fileMetadata = {
                 fileIndex: index,
