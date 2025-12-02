@@ -10,8 +10,6 @@ export function logMessage(message, type = "info") {
 
     dom.messageLogEl.appendChild(logEntry);
     dom.messageLogEl.scrollTop = dom.messageLogEl.scrollHeight;
-
-    //     console.log(`${timeString} ${message}`);
 }
 
 export function updatePeersList(peers, myId, selectPeerCallback) {
@@ -45,38 +43,19 @@ export function updatePeersList(peers, myId, selectPeerCallback) {
     });
 }
 
-export function updateWsStatus(connected) {
-    if (!connected) {
-        dom.notify.classList.remove("hidden");
-    } else {
-        dom.notify.classList.add("hidden");
-    }
-
-    const txt = connected ? "Connected" : "Disconnected";
-    const cls = connected ? "connected" : "disconnected";
-
-    const el = document.getElementById("ws-status");
-    el.textContent = txt;
-    el.className = `status-value ${cls}`;
-
-    const elM = document.getElementById("ws-status-m");
-    elM.textContent = connected ? "●" : "●";
-    elM.className = `status-value ${cls}`;
-}
-
 export function updateDcStatus(open) {
-    const txt = open ? "Connected" : "Disconnected";
-    const cls = open ? "connected" : "disconnected";
-
-    const el = document.getElementById("dc-status");
-    el.textContent = txt;
-    el.className = `status-value ${cls} `;
-
-    const elM = document.getElementById("dc-status-m");
-    elM.textContent = cls ? "●" : "●";
-    elM.className = `status-value ${cls} `;
-
-    dom.messageInput.disabled = !open;
-    dom.sendBtn.disabled = !open;
-    dom.connectBtn.disabled = open;
+    // const txt = open ? "Connected" : "Disconnected";
+    // const cls = open ? "connected" : "disconnected";
+    //
+    // const el = document.getElementById("dc-status");
+    // el.textContent = txt;
+    // el.className = `status-value ${cls} `;
+    //
+    // const elM = document.getElementById("dc-status-m");
+    // elM.textContent = cls ? "●" : "●";
+    // elM.className = `status-value ${cls} `;
+    //
+    // dom.messageInput.disabled = !open;
+    // dom.sendBtn.disabled = !open;
+    // dom.connectBtn.disabled = open;
 }
