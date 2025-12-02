@@ -214,6 +214,10 @@ dom.joinBtn.addEventListener("click", () => {
     }
 });
 
+document.getElementById("exit-btn").addEventListener("click", () => {
+    location.href = location.origin;
+});
+
 dom.shareBtn.addEventListener("click", () => {
     dom.notify.classList.add("hidden");
     dom.shareModal.classList.remove("hidden");
