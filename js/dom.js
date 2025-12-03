@@ -19,3 +19,4 @@ export const shareBtn = document.getElementById("share-btn");
 export const shareModal = document.getElementById("share-modal");
 export const copyUrlBtn = document.getElementById("copy-url-btn");
 export const dropZone = document.getElementById("side-panel");
+export const msgPanel = document.getElementById("msg-panel");

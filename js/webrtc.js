@@ -80,6 +80,7 @@ export function attachDcHandler(channel) {
 
     channel.onopen = () => {
         updateDcStatus(true);
+        document.getElementById("msg-panel").classList.remove("hidden");
         document.getElementById("list-peers").classList.remove("hidden");
         document.getElementById("file-hint").classList.add("hidden");
         startDcBeat();
