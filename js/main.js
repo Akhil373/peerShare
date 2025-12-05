@@ -63,6 +63,8 @@ async function handleWsMessage(event) {
     const message = JSON.parse(event.data);
     if (message.yourID) {
         myId = message.yourID;
+        sessionStorage.setItem("my_socket_id", myId);
+        console.log("socket_id:", myId);
         dom.myIdEl.forEach((element) => {
             element.textContent = myId;
         });
@@ -120,8 +122,7 @@ function handleWsError(err) {
     console.error(`Websocket error: ${JSON.stringify(err)}`);
 }
 
-function startWebsocket() {
-    if (isManuallyClosed) return;
+function startWebsocket(id) {
     ws = connectWebsocket(
         {
             onOpen: handleWsOpen,
@@ -129,7 +130,7 @@ function startWebsocket() {
             onClose: handleWsClose,
             onError: handleWsError,
         },
-        isManuallyClosed,
+        id,
     );
 }
 
@@ -340,12 +341,19 @@ dom.fileInput.addEventListener("change", () => {
 });
 
 document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") requestLock();
+    if (document.visibilityState === "visible") {
+        requestLock();
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+            const oldId = sessionStorage.getItem("my_socket_id");
+            startWebsocket(oldId);
+        }
+    }
 });
 
 // --- initial setup logic-
 updateWsStatus(false);
 startWebsocket();
+
 if (isLAN) dom.shareBtn.classList.add("hidden");
 if (urlRoom) {
     dom.roomInput.value = urlRoom;

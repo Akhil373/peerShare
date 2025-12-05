@@ -1,7 +1,12 @@
 import { wss } from "./ws-server.js";
 import { nanoid } from "nanoid";
+import url from "node:url";
 
 const rooms = new Map();
+
+function heartbeat() {
+    this.isAlive = true;
+}
 
 const getBaseIp = (ip) => {
     if (!ip) return null;
@@ -66,19 +71,38 @@ function leaveRoom(ws) {
     ws.roomId = null;
 }
 
+const interval = setInterval(() => {
+    wss.clients.forEach(function each(ws) {
+        if (ws.isAlive == false) {
+            console.log("Terminating dead connection: ", ws.id);
+            return ws.terminate();
+        }
+        ws.isAlive = false;
+        ws.ping();
+    });
+}, 30000);
+
 wss.on("connection", function connection(ws, req) {
-    ws.id = nanoid(8);
+    const params = url.parse(req.url, true).query;
+    if (params.reconnect_id) {
+        ws.id = params.reconnect_id;
+        console.log("User reconnected: ", params.reconnect_id);
+    } else {
+        ws.id = nanoid(8);
+        console.log("New user: ", ws.id);
+    }
+    ws.isAlive = true;
 
     let rawIp = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
     if (rawIp && typeof rawIp === "string" && rawIp.includes(",")) {
         rawIp = rawIp.split(",")[0].trim();
     }
-
     ws.ip = rawIp?.includes("::ffff:") ? rawIp.split(":").pop() : rawIp;
-
     console.log("Connected:", ws.id, ws.ip);
 
     ws.send(JSON.stringify({ yourID: ws.id }));
+
+    ws.on("pong", heartbeat);
 
     ws.on("message", function message(data) {
         const msg = JSON.parse(data);
@@ -154,4 +178,8 @@ wss.on("connection", function connection(ws, req) {
         leaveRoom(ws);
         if (tempRoomId) broadcastClients(tempRoomId);
     });
+});
+
+wss.on("close", function close() {
+    clearInterval(interval);
 });

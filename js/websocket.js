@@ -6,11 +6,13 @@ export function sendWsMessage(ws, message) {
     }
 }
 
-export function connectWebsocket(handlers, isManuallyClosed) {
+export function connectWebsocket(handlers, id) {
     const { onOpen, onMessage, onClose, onError } = handlers;
-    if (isManuallyClosed) return;
 
-    const ws = new WebSocket("wss://webrtc-share.onrender.com");
+    const url = id
+        ? `wss://webrtc-share.onrender.com?reconnect_id=${id}`
+        : "wss://webrtc-share.onrender.com";
+    const ws = new WebSocket(url);
 
     ws.onopen = onOpen;
     ws.onmessage = onMessage;

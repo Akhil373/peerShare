@@ -2,7 +2,7 @@ import "dotenv/config";
 import http from "http";
 import { WebSocketServer } from "ws";
 
-const port = process.env.PORT || 8080;
+const port = 8000;
 const host = "0.0.0.0";
 
 const server = http.createServer((req, res) => {
