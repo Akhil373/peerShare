@@ -3,3 +3,4 @@ test*
 webrtc-signaling/.env
 style1.css
 tailwind.config.*
+dist/

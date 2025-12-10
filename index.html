@@ -5,335 +5,35 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#282828" />
-    <title>PeerShare</title>
-
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-
-    <link
-      rel="icon"
-      type="image/png"
-      sizes="32x32"
-      href="/favicon_io/favicon-32x32.png"
-    />
-    <link
-      rel="apple-touch-icon"
-      type=""
-      href="/favicon_io/apple-touch-icon.png"
-    />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta
       name="apple-mobile-web-app-status-bar-style"
       content="black-translucent"
     />
-    <style>
-      @layer base {
-        * {
-          box-sizing: border-box;
-          margin: 0;
-          padding: 0;
-          font-family:
-            monospace,
-            -apple-system,
-            system-ui,
-            blinkmacsystemfont,
-            "segoe ui",
-            roboto,
-            oxygen,
-            ubuntu,
-            cantarell,
-            "open sans",
-            "helvetica neue",
-            sans-serif;
-        }
-      }
+    <title>PeerShare</title>
+    <link href="./output.css" rel="stylesheet" />
+    <link
+      rel="preload"
+      as="image"
+      href="/bg.webp"
+      media="(max-width: 767px)"
+    />
+    <link
+      rel="preload"
+      as="image"
+      href="/bg1.webp"
+      media="(min-width: 768px)"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="/favicon-32x32.png"
+    />
+    <link rel="apple-touch-icon" type="" href="/apple-touch-icon.png" />
 
-      .file-input {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        padding: 0;
-        margin: -1px;
-        overflow: hidden;
-        clip: rect(0, 0, 0, 0);
-        white-space: nowrap;
-        border: 0;
-      }
-
-      .animate-bounce-2 {
-        animation: bounce 1s ease-in infinite;
-        animation-iteration-count: 2;
-      }
-
-      @keyframes bounce {
-        0%,
-        100% {
-          transform: translateY(-0%);
-        }
-        50% {
-          transform: translateY(-10px);
-        }
-      }
-
-      @keyframes sonar {
-        0% {
-          transform: scale(0.35);
-          opacity: 0.8;
-        }
-
-        100% {
-          transform: scale(2.4);
-          opacity: 0;
-        }
-      }
-
-      @keyframes float {
-        0%,
-        100% {
-          transform: translateY(0);
-        }
-
-        50% {
-          transform: translateY(-5px);
-        }
-      }
-
-      @keyframes pop {
-        0% {
-          transform: scale(0.5);
-          opacity: 0;
-        }
-
-        70% {
-          transform: scale(1.08);
-        }
-
-        100% {
-          transform: scale(1);
-          opacity: 1;
-        }
-      }
-
-      .peer-item:hover {
-        transform: scale(1.05);
-      }
-
-      .peer-item {
-        width: 80px;
-        height: 80px;
-        border-radius: 50%;
-        background: #458588;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        text-align: center;
-        padding: 8px;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-        cursor: pointer;
-        transition: all 0.2s ease;
-        overflow: hidden;
-        outline: 2px dashed #d79921;
-        outline-offset: 6px;
-
-        position: relative;
-        overflow: hidden;
-        animation:
-          float 3s ease-in-out infinite,
-          pop 0.6s ease-out backwards;
-      }
-
-      .peer-name,
-      .peer-id {
-        font-size: 0.65rem;
-        line-height: 1.2;
-        color: white;
-        width: 100%;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-
-      .peer-item::before {
-        content: "";
-        position: absolute;
-        inset: 0;
-        border-radius: 50%;
-        border: 2px solid #d79921;
-        animation: sonar 2.2s ease-out infinite;
-      }
-
-      .peer-item.selected {
-        animation-duration: 0.8s, 0.6s;
-      }
-
-      .peer-item:hover::before {
-        animation-play-state: paused;
-      }
-
-      @keyframes dot {
-        0%,
-        20% {
-          opacity: 0;
-        }
-        50% {
-          opacity: 1;
-        }
-        100% {
-          opacity: 0;
-        }
-      }
-
-      .peers-list.empty-state .message::after {
-        content: "";
-        display: inline-block;
-        width: 6px;
-        height: 6px;
-        margin-left: 6px;
-        background: #d79921;
-        border-radius: 50%;
-        animation: dot 1.4s infinite;
-      }
-
-      @media (min-width: 640px) {
-        .peer-item {
-          width: 90px;
-          height: 90px;
-          outline-offset: 7px;
-        }
-      }
-
-      @media (min-width: 768px) {
-        .peer-item {
-          width: 100px;
-          height: 100px;
-          outline-offset: 8px;
-        }
-      }
-
-      @media (min-width: 768px) {
-        .peer-name,
-        .peer-id {
-          font-size: 0.75rem;
-        }
-      }
-
-      .peer-name {
-        font-weight: bold;
-        margin-bottom: 2px;
-      }
-
-      .peer-item:hover {
-        outline: 2px solid #d79921;
-        background: #076678;
-      }
-
-      .peer-item.selected {
-        background: rgba(76, 175, 80, 0.4);
-        border: 2px solid #4caf50;
-        transform: scale(1.05);
-      }
-
-      .peers-list.empty-state {
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-      }
-
-      .peers-list.empty-state .message {
-        color: #aaa;
-        font-style: italic;
-        text-align: center;
-        padding: 20px;
-      }
-
-      .file-input-label:hover {
-        background: black;
-        border-color: #3c7d7f;
-        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-      }
-
-      #status-bar {
-        background: #282828;
-      }
-
-      .status-value.connected {
-        color: #98971a !important;
-      }
-
-      .status-value.disconnected {
-        color: #cc214d !important;
-      }
-
-      .log-warning {
-        color: #ff9800;
-      }
-
-      .log-error {
-        color: #f44336;
-      }
-    </style>
-
-    <script>
-      !(function (t, e) {
-        var o, n, p, r;
-        e.__SV ||
-          (window.posthog && window.posthog.__loaded) ||
-          ((window.posthog = e),
-          (e._i = []),
-          (e.init = function (i, s, a) {
-            function g(t, e) {
-              var o = e.split(".");
-              (2 == o.length && ((t = t[o[0]]), (e = o[1])),
-                (t[e] = function () {
-                  t.push([e].concat(Array.prototype.slice.call(arguments, 0)));
-                }));
-            }
-            (((p = t.createElement("script")).type = "text/javascript"),
-              (p.crossOrigin = "anonymous"),
-              (p.async = !0),
-              (p.src =
-                s.api_host.replace(".i.posthog.com", "-assets.i.posthog.com") +
-                "/static/array.js"),
-              (r = t.getElementsByTagName("script")[0]).parentNode.insertBefore(
-                p,
-                r,
-              ));
-            var u = e;
-            for (
-              void 0 !== a ? (u = e[a] = []) : (a = "posthog"),
-                u.people = u.people || [],
-                u.toString = function (t) {
-                  var e = "posthog";
-                  return (
-                    "posthog" !== a && (e += "." + a),
-                    t || (e += " (stub)"),
-                    e
-                  );
-                },
-                u.people.toString = function () {
-                  return u.toString(1) + ".people (stub)";
-                },
-                o =
-                  "init Rr Mr fi Or Ar ci Tr Cr capture Mi calculateEventProperties Lr register register_once register_for_session unregister unregister_for_session Hr getFeatureFlag getFeatureFlagPayload isFeatureEnabled reloadFeatureFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSurveysLoaded onSessionId getSurveys getActiveMatchingSurveys renderSurvey displaySurvey canRenderSurvey canRenderSurveyAsync identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException loadToolbar get_property getSessionProperty Ur jr createPersonProfile zr kr Br opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing get_explicit_consent_status is_capturing clear_opt_in_out_capturing Dr debug M Nr getPageViewId captureTraceFeedback captureTraceMetric $r".split(
-                    " ",
-                  ),
-                n = 0;
-              n < o.length;
-              n++
-            )
-              g(u, o[n]);
-            e._i.push([i, s, a]);
-          }),
-          (e.__SV = 1));
-      })(document, window.posthog || []);
-      posthog.init("phc_AG0Uzy18KUmPn6xrsN6GighdM4ZV4RrIr0QMBOa84Pl", {
-        api_host: "https://us.i.posthog.com",
-        defaults: "2025-05-24",
-        person_profiles: "always",
-      });
-    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script type="module" src="/src/js/analytics.js"></script>
   </head>
 
   <body class="bg-[#282828] text-white min-h-screen p-4 md:p-6 lg:p-8">
@@ -379,7 +79,7 @@
 
     <div
       id="join-room"
-      class="bg-[url('/favicon_io/bg.png')] md:bg-[url('/favicon_io/bg1.png')] bg-cover bg-center bg-no-repeat min-h-screen text-[#ebdbb2] flex items-center justify-center p-6"
+      class="bg-[url('/bg.webp')] md:bg-[url('/bg1.webp')] bg-cover bg-center bg-no-repeat min-h-screen text-[#ebdbb2] flex items-center justify-center p-6"
     >
       <div
         class="w-full max-w-4xl grid md:grid-cols-2 gap-0 rounded-xl shadow-2xl bg-[#3c3836] border border-[#504945] overflow-hidden"
@@ -748,7 +448,7 @@
         </a>
       </footer>
     </div>
-    <script src="js/main.js" type="module"></script>
+    <script src="/src/js/main.js" type="module"></script>
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {

@@ -5,7 +5,10 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "cd webrtc-signaling && node server.js"
+    "start": "cd webrtc-signaling && node server.js",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
   },
   "keywords": [],
   "type": "module",
@@ -13,11 +16,14 @@
   "license": "ISC",
   "packageManager": "pnpm@10.19.0",
   "dependencies": {
-    "@tailwindcss/cli": "^4.1.16",
     "dotenv": "^17.2.3",
-    "live-server": "^1.2.2",
     "nanoid": "^5.1.6",
-    "tailwindcss": "^4.1.16",
     "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.1.17",
+    "live-server": "^1.2.2",
+    "tailwindcss": "^4.1.17",
+    "vite": "^7.2.7"
   }
 }
