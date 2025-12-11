@@ -43,6 +43,5 @@ cd webrtc-share && pnpm i && pnpm start
 
 - [x] Instant Lan rooms
 - [ ] connection indication on remote peer
-- [ ] clean up status bar
 - [x] multi-file support
 - [ ] show transfer speeds
