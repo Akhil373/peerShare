@@ -1,12 +1,12 @@
 export const myIdEl = document.querySelectorAll(".my-id");
 export const selectedPeerEl = document.getElementById("selected-peer");
 export const peersListEl = document.getElementById("peers-list");
-export const connectBtn = document.getElementById("call-btn");
+// export const connectBtn = document.getElementById("call-btn");
 export const messageLogEl = document.getElementById("message-log");
 export const messageInput = document.getElementById("message-input");
 export const sendBtn = document.getElementById("send-btn");
 export const fileInput = document.getElementById("fileShare");
-export const fileShareBtn = document.getElementById("send-file-btn");
+// export const fileShareBtn = document.getElementById("send-file-btn");
 export const nameEl = document.getElementById("my-name");
 export const fileProgDiv = document.getElementById("file-prog-div");
 export const fileProg = document.getElementById("progress-text");
