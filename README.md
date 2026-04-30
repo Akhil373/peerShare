@@ -16,6 +16,7 @@ No frameworks, no build step, no tracking.
 - share a hash-link, done (`#a8f3k2z1`)
 - works on wifi, mobile hotspot, whatever NAT you’re behind (well, for the most part)
 - even better if you plug in your own TURN server
+- direct 'share' button from mobile works
 
 ## screenshots
 
