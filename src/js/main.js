@@ -248,10 +248,12 @@ async function checkSharedFile() {
         req.onsuccess = () => res(req.result);
     });
 
-    if (entry?.file) {
-        fileMetadata = [entry.file];
+    if (entry?.files?.length > 0) {
+        fileMetadata = entry.files;
         console.log(fileMetadata);
-        document.getElementById("file-input-label").textContent = `📁 ${entry.file.name}`;
+        const fileNames = entry.files.map((f) => f.name).join(", ");
+
+        document.getElementById("file-input-label").textContent = `📁 ${fileNames}`;
         document.getElementById("list-peers").classList.remove("hidden");
         document.getElementById("file-hint").classList.add("hidden");
 
