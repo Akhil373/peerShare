@@ -1,11 +1,3 @@
-self.addEventListener("fetch", (event) => {
-    const url = new URL(event.request.url);
-
-    if (event.request.method === "POST" && url.pathname === "/share-target/") {
-        event.respondWith(handleShare(event.request));
-    }
-});
-
 async function handleShare(request) {
     const formData = await request.formData();
 
@@ -28,9 +20,36 @@ function openDb() {
     });
 }
 
+async function cleanPreviousFiles() {
+    const db = openDb();
+    const tx = db.transaction('shared_files', 'readwrite');
+    const store = tx.objectStore('shared_files');
+    const entry = await new Promise(res => {
+        const req = store.get('pending');
+        req.onsuccess = () => res(req.result);
+        req.onerror = () => res(null)
+    });
+    if (entry && Date.now() - entry.timestamp > 5 * 60 * 1000) {
+        store.delete('pending');
+    }
+}
+
+
 async function storeSharedFile(file) {
     const db = await openDb();
     const tx = db.transaction('shared_files', 'readwrite');
     tx.objectStore('shared_files').put({ file, timestamp: Date.now() }, 'pending')
     await tx.done;
 }
+
+self.addEventListener("fetch", (event) => {
+    const url = new URL(event.request.url);
+
+    if (event.request.method === "POST" && url.pathname === "/share-target/") {
+        event.respondWith(handleShare(event.request));
+    }
+});
+
+self.addEventListener('activate', (event) => {
+    event.waitUntil(cleanPreviousFiles());
+})
