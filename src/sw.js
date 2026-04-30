@@ -9,7 +9,7 @@ self.addEventListener("fetch", (event) => {
 async function handleShare(request) {
     const formData = await request.formData();
 
-    const file = formData.get("shared_files");
+    const file = formData.get("shared_file");
     if (file) {
         await storeSharedFile(file);
         console.log("Received file:", file.name, file.size, file.type);
