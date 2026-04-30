@@ -242,7 +242,8 @@ async function checkSharedFile() {
     store.delete("pending");
 
     if (entry?.file) {
-        fileMetadata = entry.file;
+        fileMetadata = [entry.file];
+        console.log(fileMetadata);
         document.getElementById("file-input-label").textContent = `📁 ${entry.file.name}`;
         document.getElementById("list-peers").classList.remove("hidden");
         document.getElementById("file-hint").classList.add("hidden");
