@@ -1,5 +1,5 @@
 import * as dom from "./dom.js";
-import { getUserDetails, requestLock, checkSharedFile, openDb } from "./utils.js";
+import { getUserDetails, requestLock, openDb } from "./utils.js";
 import { updatePeersList, updateWsStatus } from "./ui.js";
 import {
     connectWebsocket,
