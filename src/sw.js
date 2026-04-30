@@ -11,7 +11,7 @@ async function handleShare(request) {
 
     const file = formData.get("shared_files");
     if (file) {
-        await storeSharedFile();
+        await storeSharedFile(file);
         console.log("Received file:", file.name, file.size, file.type);
     } else {
         console.log("file not received")
@@ -31,6 +31,6 @@ function openDb() {
 async function storeSharedFile(file) {
     const db = await openDb();
     const tx = db.transaction('shared_files', 'readwrite');
-    tx.objectStore('shared_files').put({ file, timestamp: Data.now() }, 'pending')
+    tx.objectStore('shared_files').put({ file, timestamp: Date.now() }, 'pending')
     await tx.done;
 }
