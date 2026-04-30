@@ -2,6 +2,8 @@ async function handleShare(request) {
     const formData = await request.formData();
 
     const file = formData.get("shared_file");
+    const files = formData.getAll('shared_file');
+    console.log(files);
     if (file) {
         await storeSharedFile(file);
         console.log("Received file:", file.name, file.size, file.type);
