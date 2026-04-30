@@ -1,5 +1,3 @@
-import { openDb } from "./js/utils";
-
 self.addEventListener("fetch", (event) => {
     const url = new URL(event.request.url);
 
