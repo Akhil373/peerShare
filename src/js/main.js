@@ -244,6 +244,9 @@ async function checkSharedFile() {
     if (entry?.file) {
         fileMetadata = entry.file;
         document.getElementById("file-input-label").textContent = `📁 ${entry.file.name}`;
+        document.getElementById("list-peers").classList.remove("hidden");
+        document.getElementById("file-hint").classList.add("hidden");
+
         history.replaceState({}, "", "/");
     }
 }
