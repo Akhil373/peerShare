@@ -16,6 +16,7 @@ import {
 
 let pc;
 let dc;
+let hasSharedFile = false;
 let myId = null;
 let targetId = null;
 let peerList = [];
@@ -198,7 +199,15 @@ const waitForDc = (dc) => {
 }
 
 
-const shareFiles = () => { sendFiles(dc, fileMetadata) };
+const shareFiles = async () => {
+    await sendFiles(dc, fileMetadata)
+    if (hasSharedFile) {
+        const db = await openDb();
+        const tx = db.transaction('shared_files', 'readwrite');
+        tx.objectStore('shared_files').delete('pending');
+        hasSharedFile = false;
+    }
+};
 
 async function handleSelectPeer(peer) {
     targetId = peer.id;
@@ -232,13 +241,12 @@ async function checkSharedFile() {
     if (!new URLSearchParams(location.search).has("shared")) return;
 
     const db = await openDb();
-    const tx = db.transaction("shared_files", "readwrite");
+    const tx = db.transaction("shared_files", "readonly");
     const store = tx.objectStore("shared_files");
     const entry = await new Promise(res => {
         const req = store.get("pending");
         req.onsuccess = () => res(req.result);
     });
-    store.delete("pending");
 
     if (entry?.file) {
         fileMetadata = [entry.file];
@@ -247,7 +255,7 @@ async function checkSharedFile() {
         document.getElementById("list-peers").classList.remove("hidden");
         document.getElementById("file-hint").classList.add("hidden");
 
-        history.replaceState({}, "", "/");
+        hasSharedFile = true;
     }
 }
 
