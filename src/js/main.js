@@ -183,10 +183,8 @@ const waitForDc = (dc) => {
         if (dc.readyState === 'open') return resolve();
         const timer = setTimeout(() => reject(new Error('DC open timeout')), 10000);
 
-        console.log(dc.readyState);
 
         dc.addEventListener('open', () => {
-            console.log('dc opened');
             clearTimeout(timer);
             resolve();
         })
@@ -227,7 +225,6 @@ async function handleSelectPeer(peer) {
     }
     await connectFunc();
     await waitForDc(dc);
-    console.log("DC state after wait: ", dc.readyState);
     shareFiles();
 }
 
@@ -361,7 +358,11 @@ document.getElementById("fileShare").onchange = () => {
 };
 
 document.getElementById("lan-btn").onclick = () => {
-    location.href = "?mode=lan&roomId=lan";
+    // location.href = "?mode=lan&roomId=lan";
+    const params = new URLSearchParams(location.search);
+    params.set("mode", "lan");
+    params.set("roomId", "lan");
+    location.href = `?${params.toString()}`;
 };
 
 dom.dropZone.addEventListener("dragover", (e) => {
