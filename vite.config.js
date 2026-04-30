@@ -1,6 +1,9 @@
 import { defineConfig } from "vite";
 
 export default defineConfig({
+    server: {
+        allowedHosts: ['.ngrok-free.dev']
+    },
     build: {
         rollupOptions: {
             input: {
@@ -11,7 +14,7 @@ export default defineConfig({
                 entryFileNames: (assetInfo) => {
                     return assetInfo.name === 'sw' ? 'sw.js' : 'assets/[name]-[hash].js';
                 }
-            }
+            },
         }
     }
 });

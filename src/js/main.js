@@ -1,21 +1,22 @@
 import * as dom from "./dom.js";
-import { getUserDetails, requestLock } from "./utils.js";
+import { getUserDetails, requestLock, openDb } from "./utils.js";
 import { updatePeersList, updateWsStatus } from "./ui.js";
 import {
-  connectWebsocket,
-  sendWsMessage,
-  scheduleReconnect,
+    connectWebsocket,
+    sendWsMessage,
+    scheduleReconnect,
 } from "./websocket.js";
 import {
-  initPeerConnection,
-  attachDcHandler,
-  sendDcMessage,
-  sendFiles,
-  makeCall,
+    initPeerConnection,
+    attachDcHandler,
+    sendDcMessage,
+    sendFiles,
+    makeCall,
 } from "./webrtc.js";
 
 let pc;
 let dc;
+let hasSharedFile = false;
 let myId = null;
 let targetId = null;
 let peerList = [];
@@ -30,348 +31,384 @@ const urlRoom = location.hash.slice(1);
 
 const ALPHABET = "abcdefghijklmnopqrstuvwxyz";
 function generateCode(len = 6) {
-  const bytes = new Uint8Array(len);
-  crypto.getRandomValues(bytes);
-  let code = "";
-  for (let i = 0; i < len; i++) code += ALPHABET[bytes[i] % 26];
-  return code;
+    const bytes = new Uint8Array(len);
+    crypto.getRandomValues(bytes);
+    let code = "";
+    for (let i = 0; i < len; i++) code += ALPHABET[bytes[i] % 26];
+    return code;
 }
 
 function handleWsOpen() {
-  updateWsStatus(true);
-  const { browser, deviceType, os } = getUserDetails();
-  console.log(browser, deviceType);
-  const emoji =
-    deviceType.toLowerCase() === "desktop" ? "🖥️" : "📱";
-  const myName = `${emoji} ${os} ${browser}`;
-  dom.nameEl.textContent = myName;
-  sendWsMessage(ws, {
-    type: "register",
-    name: myName,
-  });
+    updateWsStatus(true);
+    const { browser, deviceType, os } = getUserDetails();
+    console.log(browser, deviceType);
+    const emoji =
+        deviceType.toLowerCase() === "desktop" ? "🖥️" : "📱";
+    const myName = `${emoji} ${os} ${browser}`;
+    dom.nameEl.textContent = myName;
+    sendWsMessage(ws, {
+        type: "register",
+        name: myName,
+    });
 
-  if (ROOM_ID) {
-    sendWsMessage(ws, { type: "join-room", roomId: ROOM_ID });
-    pc = setupPeerConnection();
-  }
-  if (pendingRoom) {
-    sendWsMessage(ws, { type: "join-room", roomId: pendingRoom });
-    pendingRoom = null;
-  }
+    if (ROOM_ID) {
+        sendWsMessage(ws, { type: "join-room", roomId: ROOM_ID });
+        pc = setupPeerConnection();
+    }
+    if (pendingRoom) {
+        sendWsMessage(ws, { type: "join-room", roomId: pendingRoom });
+        pendingRoom = null;
+    }
 }
 
 async function handleWsMessage(event) {
-  const message = JSON.parse(event.data);
-  if (message.yourID) {
-    myId = message.yourID;
-    sessionStorage.setItem("my_socket_id", myId);
-    console.log("socket_id:", myId);
-    dom.myIdEl.forEach((element) => {
-      element.textContent = myId;
-    });
-    return;
-  }
+    const message = JSON.parse(event.data);
+    if (message.yourID) {
+        myId = message.yourID;
+        sessionStorage.setItem("my_socket_id", myId);
+        console.log("socket_id:", myId);
+        dom.myIdEl.forEach((element) => {
+            element.textContent = myId;
+        });
+        return;
+    }
 
-  if (message.from === myId) return;
-  switch (message.type) {
-    case "joined":
-      document.getElementById("join-room").classList.add("hidden");
-      document.getElementById("main-ui").classList.remove("hidden");
-      break;
-    case "clientsList":
-      peerList = message.content || [];
-      updatePeersList(peerList, myId, handleSelectPeer);
-      if (
-        peerList.find((p) => p.id === myId) &&
-        peerList.length === 1 &&
-        !isLAN
-      ) {
-        dom.notify.textContent = `📌 Share this room to other device! ⤵️`;
-        dom.notify.classList.remove("hidden");
-      }
-      break;
-    case "offer":
-      if (!pc) pc = setupPeerConnection();
-      await pc.setRemoteDescription(new RTCSessionDescription(message));
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-      sendWsMessage(ws, {
-        type: "answer",
-        sdp: answer.sdp,
-        from: myId,
-        to: message.from,
-        roomId: message.roomId,
-      });
-      break;
-    case "answer":
-      await pc.setRemoteDescription(new RTCSessionDescription(message));
-      break;
-    case "ice-candidate":
-      await pc.addIceCandidate(new RTCIceCandidate(message.candidate));
-      break;
-  }
+    if (message.from === myId) return;
+    switch (message.type) {
+        case "joined":
+            document.getElementById("join-room").classList.add("hidden");
+            document.getElementById("main-ui").classList.remove("hidden");
+            break;
+        case "clientsList":
+            peerList = message.content || [];
+            updatePeersList(peerList, myId, handleSelectPeer);
+            if (
+                peerList.find((p) => p.id === myId) &&
+                peerList.length === 1 &&
+                !isLAN
+            ) {
+                dom.notify.textContent = `📌 Share this room to other device! ⤵️`;
+                dom.notify.classList.remove("hidden");
+            }
+            break;
+        case "offer":
+            if (!pc) pc = setupPeerConnection();
+            await pc.setRemoteDescription(new RTCSessionDescription(message));
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            sendWsMessage(ws, {
+                type: "answer",
+                sdp: answer.sdp,
+                from: myId,
+                to: message.from,
+                roomId: message.roomId,
+            });
+            break;
+        case "answer":
+            await pc.setRemoteDescription(new RTCSessionDescription(message));
+            break;
+        case "ice-candidate":
+            await pc.addIceCandidate(new RTCIceCandidate(message.candidate));
+            break;
+    }
 }
 
 function handleWsClose() {
-  console.log("WebSocket connection closed!", "warning");
-  if (!isManuallyClosed) {
-    scheduleReconnect();
-  }
+    console.log("WebSocket connection closed!", "warning");
+    if (!isManuallyClosed) {
+        scheduleReconnect();
+    }
 }
 
 function handleWsError(err) {
-  console.error(`Websocket error: ${JSON.stringify(err)}`);
+    console.error(`Websocket error: ${JSON.stringify(err)}`);
 }
 
 function startWebsocket(id) {
-  ws = connectWebsocket(
-    {
-      onOpen: handleWsOpen,
-      onMessage: handleWsMessage,
-      onClose: handleWsClose,
-      onError: handleWsError,
-    },
-    id,
-  );
+    ws = connectWebsocket(
+        {
+            onOpen: handleWsOpen,
+            onMessage: handleWsMessage,
+            onClose: handleWsClose,
+            onError: handleWsError,
+        },
+        id,
+    );
 }
 
 function handleIceCandidate(candidate) {
-  sendWsMessage(ws, {
-    type: "ice-candidate",
-    candidate,
-    from: myId,
-    to: targetId,
-    roomId: ROOM_ID,
-  });
+    sendWsMessage(ws, {
+        type: "ice-candidate",
+        candidate,
+        from: myId,
+        to: targetId,
+        roomId: ROOM_ID,
+    });
 }
 
 function handleDataChannel(dataChannel) {
-  dc = dataChannel;
-  attachDcHandler(dc);
+    dc = dataChannel;
+    attachDcHandler(dc);
 }
 
 function setupPeerConnection() {
-  if (pc) {
-    pc.close();
-    dc = null;
-  }
-  const newPc = initPeerConnection(
-    isLAN,
-    handleIceCandidate,
-    handleDataChannel,
-  );
-  return newPc;
+    if (pc) {
+        pc.close();
+        dc = null;
+    }
+    const newPc = initPeerConnection(
+        isLAN,
+        handleIceCandidate,
+        handleDataChannel,
+    );
+    return newPc;
 }
 
 const connectFunc = async () => {
-  if (targetId) {
-    if (!pc) pc = setupPeerConnection();
-    const { offer, dc: newDc } = await makeCall(pc, handleDataChannel);
-    dc = newDc;
-    sendWsMessage(ws, {
-      type: "offer",
-      sdp: offer.sdp,
-      from: myId,
-      to: targetId,
-      roomId: ROOM_ID,
-    });
-  }
+    if (targetId) {
+        if (!pc) pc = setupPeerConnection();
+        const { offer, dc: newDc } = await makeCall(pc, handleDataChannel);
+        dc = newDc;
+        sendWsMessage(ws, {
+            type: "offer",
+            sdp: offer.sdp,
+            from: myId,
+            to: targetId,
+            roomId: ROOM_ID,
+        });
+    }
 }
 
 const waitForDc = (dc) => {
-  return new Promise((resolve, reject) => {
-    if (dc.readyState === 'open') return resolve();
-    const timer = setTimeout(() => reject(new Error('DC open timeout')), 10000);
+    return new Promise((resolve, reject) => {
+        if (dc.readyState === 'open') return resolve();
+        const timer = setTimeout(() => reject(new Error('DC open timeout')), 10000);
 
-    console.log(dc.readyState);
 
-    dc.addEventListener('open', () => {
-      clearTimeout(timer);
-      resolve();
+        dc.addEventListener('open', () => {
+            clearTimeout(timer);
+            resolve();
+        })
+
+        dc.addEventListener('error', (e) => {
+            clearTimeout(timer);
+            reject(e);
+        })
+
     })
-
-    dc.addEventListener('error', (e) => {
-      clearTimeout(timer);
-      reject(e);
-    })
-
-  })
 }
 
 
-const shareFiles = () => { sendFiles(dc, fileMetadata) };
+const shareFiles = async () => {
+    await sendFiles(dc, fileMetadata)
+    if (hasSharedFile) {
+        const db = await openDb();
+        const tx = db.transaction('shared_files', 'readwrite');
+        tx.objectStore('shared_files').delete('pending');
+        hasSharedFile = false;
+    }
+};
 
 async function handleSelectPeer(peer) {
-  targetId = peer.id;
-  dom.selectedPeerEl.textContent = `${peer.name} (${peer.id})`;
+    targetId = peer.id;
+    dom.selectedPeerEl.textContent = `${peer.name} (${peer.id})`;
 
-  const peerItems = dom.peersListEl.querySelectorAll(".peer-item");
-  peerItems.forEach((item) => {
-    item.classList.remove("selected");
-    const btn = item.querySelector(".select-btn");
-    if (btn) btn.textContent = "Select";
-  });
+    const peerItems = dom.peersListEl.querySelectorAll(".peer-item");
+    peerItems.forEach((item) => {
+        item.classList.remove("selected");
+        const btn = item.querySelector(".select-btn");
+        if (btn) btn.textContent = "Select";
+    });
 
-  for (let item of peerItems) {
-    const idDiv = item.querySelector(".peer-id");
-    if (idDiv && idDiv.textContent.includes(peer.id)) {
-      item.classList.add("selected");
-      const btn = item.querySelector(".select-btn");
-      if (btn) {
-        btn.textContent = "Selected";
-        btn.classList.add("selected");
-      }
-      break;
+    for (let item of peerItems) {
+        const idDiv = item.querySelector(".peer-id");
+        if (idDiv && idDiv.textContent.includes(peer.id)) {
+            item.classList.add("selected");
+            const btn = item.querySelector(".select-btn");
+            if (btn) {
+                btn.textContent = "Selected";
+                btn.classList.add("selected");
+            }
+            break;
+        }
     }
-  }
-  await connectFunc();
-  await waitForDc(dc);
-  shareFiles();
+    await connectFunc();
+    await waitForDc(dc);
+    shareFiles();
 }
+
+async function checkSharedFile() {
+    if (!new URLSearchParams(location.search).has("shared")) return;
+
+    const db = await openDb();
+    const tx = db.transaction("shared_files", "readonly");
+    const store = tx.objectStore("shared_files");
+    const entry = await new Promise(res => {
+        const req = store.get("pending");
+        req.onsuccess = () => res(req.result);
+    });
+
+    if (entry?.file) {
+        fileMetadata = [entry.file];
+        console.log(fileMetadata);
+        document.getElementById("file-input-label").textContent = `📁 ${entry.file.name}`;
+        document.getElementById("list-peers").classList.remove("hidden");
+        document.getElementById("file-hint").classList.add("hidden");
+
+        hasSharedFile = true;
+    }
+}
+
+checkSharedFile();
+
 
 // -- all event listenerss -----
 
 dom.createBtn.addEventListener("click", () => {
-  ROOM_ID = generateCode(6);
-  location.hash = ROOM_ID;
-  pc = setupPeerConnection();
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    sendWsMessage(ws, { type: "join-room", roomId: ROOM_ID });
-  }
+    ROOM_ID = generateCode(6);
+    location.hash = ROOM_ID;
+    pc = setupPeerConnection();
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        sendWsMessage(ws, { type: "join-room", roomId: ROOM_ID });
+    }
 });
 
 dom.joinBtn.addEventListener("click", () => {
-  const ROOM_CODE = dom.roomInput.value.trim();
-  if (!ROOM_CODE || (ROOM_CODE.length !== 6 && ROOM_CODE !== "lan")) {
-    alert("Enter a valid room code");
-    return;
-  }
-  ROOM_ID = ROOM_CODE;
-  location.hash = ROOM_ID;
-  pc = setupPeerConnection();
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    sendWsMessage(ws, { type: "join-room", roomId: ROOM_ID });
-  } else {
-    pendingRoom = ROOM_ID;
-  }
+    const ROOM_CODE = dom.roomInput.value.trim();
+    if (!ROOM_CODE || (ROOM_CODE.length !== 6 && ROOM_CODE !== "lan")) {
+        alert("Enter a valid room code");
+        return;
+    }
+    ROOM_ID = ROOM_CODE;
+    location.hash = ROOM_ID;
+    pc = setupPeerConnection();
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        sendWsMessage(ws, { type: "join-room", roomId: ROOM_ID });
+    } else {
+        pendingRoom = ROOM_ID;
+    }
 });
 
 document.getElementById("exit-btn").addEventListener("click", () => {
-  location.href = location.origin;
+    location.href = location.origin;
 });
 
 dom.shareBtn.addEventListener("click", () => {
-  dom.notify.classList.add("hidden");
-  dom.shareModal.classList.remove("hidden");
+    dom.notify.classList.add("hidden");
+    dom.shareModal.classList.remove("hidden");
 
-  const qrContainer = document.getElementById("qr-code");
-  qrContainer.innerHTML = "";
+    const qrContainer = document.getElementById("qr-code");
+    qrContainer.innerHTML = "";
 
-  const roomURL = window.location.href;
-  new QRCode(qrContainer, {
-    text: roomURL,
-    width: 192,
-    height: 192,
-    colorDark: "#ebdbb2",
-    colorLight: "#3c3836",
-  });
+    const roomURL = window.location.href;
+    new QRCode(qrContainer, {
+        text: roomURL,
+        width: 192,
+        height: 192,
+        colorDark: "#ebdbb2",
+        colorLight: "#3c3836",
+    });
 
-  document.getElementById("room-id").textContent = ROOM_ID;
+    document.getElementById("room-id").textContent = ROOM_ID;
 });
 
 dom.shareModal.addEventListener("click", (e) => {
-  if (e.target === dom.shareModal) dom.shareModal.classList.add("hidden");
+    if (e.target === dom.shareModal) dom.shareModal.classList.add("hidden");
 });
 
 dom.copyUrlBtn.addEventListener("click", () => {
-  navigator.clipboard
-    .writeText(window.location.href)
-    .then(() => {
-      dom.copyUrlBtn.textContent = "Copied!";
-      dom.copyUrlBtn.classList.remove("bg-[#3c3836]");
-      dom.copyUrlBtn.classList.add("bg-[#98971a]");
+    navigator.clipboard
+        .writeText(window.location.href)
+        .then(() => {
+            dom.copyUrlBtn.textContent = "Copied!";
+            dom.copyUrlBtn.classList.remove("bg-[#3c3836]");
+            dom.copyUrlBtn.classList.add("bg-[#98971a]");
 
-      setTimeout(() => {
-        dom.copyUrlBtn.textContent = "Copy Room URL";
-        dom.copyUrlBtn.classList.remove("bg-[#98971a]");
-        dom.copyUrlBtn.classList.add("bg-[#3c3836]");
-      }, 2000);
-    })
-    .catch((err) => {
-      console.error("Failed to copy:", err);
-      alert("Failed to copy URL");
-    });
+            setTimeout(() => {
+                dom.copyUrlBtn.textContent = "Copy Room URL";
+                dom.copyUrlBtn.classList.remove("bg-[#98971a]");
+                dom.copyUrlBtn.classList.add("bg-[#3c3836]");
+            }, 2000);
+        })
+        .catch((err) => {
+            console.error("Failed to copy:", err);
+            alert("Failed to copy URL");
+        });
 });
 
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && !dom.shareModal.classList.contains("hidden")) {
-    dom.shareModal.classList.add("hidden");
-  }
+    if (e.key === "Escape" && !dom.shareModal.classList.contains("hidden")) {
+        dom.shareModal.classList.add("hidden");
+    }
 });
 
 dom.sendBtn.addEventListener("click", () => sendDcMessage(dc));
 
 dom.messageInput.addEventListener("keypress", (e) => {
-  if (e.key === "Enter") {
-    sendDcMessage(dc);
-  }
+    if (e.key === "Enter") {
+        sendDcMessage(dc);
+    }
 });
 
 dom.fileInput.addEventListener("change", (e) => {
-  const files = e.target.files;
-  const fileNames = Array.from(files)
-    .map((f) => f.name)
-    .join(", ");
-  document.getElementById("file-input-label").textContent = files.length
-    ? `📁 ${fileNames}`
-    : "";
+    const files = e.target.files;
+    const fileNames = Array.from(files)
+        .map((f) => f.name)
+        .join(", ");
+    document.getElementById("file-input-label").textContent = files.length
+        ? `📁 ${fileNames}`
+        : "";
 });
 
 document.getElementById("fileShare").onchange = () => {
-  document.getElementById("list-peers").classList.remove("hidden");
-  document.getElementById("file-hint").classList.add("hidden");
+    document.getElementById("list-peers").classList.remove("hidden");
+    document.getElementById("file-hint").classList.add("hidden");
 };
 
 document.getElementById("lan-btn").onclick = () => {
-  location.href = "?mode=lan&roomId=lan";
+    // location.href = "?mode=lan&roomId=lan";
+    const params = new URLSearchParams(location.search);
+    params.set("mode", "lan");
+    params.set("roomId", "lan");
+    location.href = `?${params.toString()}`;
 };
 
 dom.dropZone.addEventListener("dragover", (e) => {
-  e.preventDefault();
-  dom.dropZone.classList.add("bg-[#473629]");
+    e.preventDefault();
+    dom.dropZone.classList.add("bg-[#473629]");
 });
 
 dom.dropZone.addEventListener("dragleave", (e) => {
-  e.preventDefault();
-  dom.dropZone.classList.remove("bg-[#473629]");
+    e.preventDefault();
+    dom.dropZone.classList.remove("bg-[#473629]");
 });
 
 dom.dropZone.addEventListener("drop", (e) => {
-  e.preventDefault();
-  dom.fileInput.files = e.dataTransfer.files;
-  dom.fileInput.dispatchEvent(new Event("change"));
-  dom.dropZone.classList.remove("bg-[#473629]");
+    e.preventDefault();
+    dom.fileInput.files = e.dataTransfer.files;
+    dom.fileInput.dispatchEvent(new Event("change"));
+    dom.dropZone.classList.remove("bg-[#473629]");
 });
 
 dom.fileInput.addEventListener("change", () => {
-  const file = dom.fileInput.files;
-  if (file.size > 1 * 1024 * 1024 * 1024) {
-    dom.notify.textContent = `Caution: Sending large files will use significant memory on the receiver's device.`;
-    dom.notify.classList.remove("hidden");
-    setTimeout(() => {
-      dom.notify.classList.add("hidden");
-    }, 10_000);
-  }
+    const file = dom.fileInput.files;
+    if (file.size > 1 * 1024 * 1024 * 1024) {
+        dom.notify.textContent = `Caution: Sending large files will use significant memory on the receiver's device.`;
+        dom.notify.classList.remove("hidden");
+        setTimeout(() => {
+            dom.notify.classList.add("hidden");
+        }, 10_000);
+    }
 });
 
 document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "visible") {
-    requestLock();
-    if (!ws || ws.readyState !== WebSocket.OPEN) {
-      const oldId = sessionStorage.getItem("my_socket_id");
-      startWebsocket(oldId);
+    if (document.visibilityState === "visible") {
+        requestLock();
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+            const oldId = sessionStorage.getItem("my_socket_id");
+            startWebsocket(oldId);
+        }
     }
-  }
 });
 
 // --- initial setup logic-
@@ -380,6 +417,6 @@ startWebsocket();
 
 if (isLAN) dom.shareBtn.classList.add("hidden");
 if (urlRoom) {
-  dom.roomInput.value = urlRoom;
-  dom.joinBtn.click();
+    dom.roomInput.value = urlRoom;
+    dom.joinBtn.click();
 }

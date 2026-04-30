@@ -11,15 +11,26 @@ async function handleShare(request) {
 
     const file = formData.get("shared_file");
     if (file) {
+        await storeSharedFile(file);
         console.log("Received file:", file.name, file.size, file.type);
     } else {
-        console.log("No file received.");
+        console.log("file not received")
     }
+    return Response.redirect("/?shared=true", 303);
+}
 
-    return new Response(
-        `<h1>Share-target test</h1>
-         <p>File: ${file ? file.name : "none"}</p>
-         <p>Size: ${file ? file.size : 0}</p>`,
-        { headers: { "Content-Type": "text/html" } },
-    );
+function openDb() {
+    return new Promise((resolve, reject) => {
+        const req = indexedDB.open('peershare', 1);
+        req.onupgradeneeded = () => req.result.createObjectStore('shared_files');
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+    });
+}
+
+async function storeSharedFile(file) {
+    const db = await openDb();
+    const tx = db.transaction('shared_files', 'readwrite');
+    tx.objectStore('shared_files').put({ file, timestamp: Date.now() }, 'pending')
+    await tx.done;
 }
