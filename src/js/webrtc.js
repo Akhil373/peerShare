@@ -198,7 +198,7 @@ export function sendDcMessage(dc) {
 }
 
 export async function sendFiles(dc, fileMetadata) {
-    const files = dom.fileInput.files;
+    const files = fileMetadata;
     if (!files) {
         logMessage("Please select a file!");
         return;
