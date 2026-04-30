@@ -21,7 +21,7 @@ function openDb() {
 }
 
 async function cleanPreviousFiles() {
-    const db = openDb();
+    const db = await openDb();
     const tx = db.transaction('shared_files', 'readwrite');
     const store = tx.objectStore('shared_files');
     const entry = await new Promise(res => {
@@ -30,6 +30,7 @@ async function cleanPreviousFiles() {
         req.onerror = () => res(null)
     });
     if (entry && Date.now() - entry.timestamp > 5 * 60 * 1000) {
+        console.log('cleaning up previous files...')
         store.delete('pending');
     }
 }
