@@ -186,6 +186,7 @@ const waitForDc = (dc) => {
         console.log(dc.readyState);
 
         dc.addEventListener('open', () => {
+            console.log('dc opened');
             clearTimeout(timer);
             resolve();
         })
@@ -226,6 +227,7 @@ async function handleSelectPeer(peer) {
     }
     await connectFunc();
     await waitForDc(dc);
+    console.log("DC state after wait: ", dc.readyState);
     shareFiles();
 }
 
