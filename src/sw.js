@@ -13,8 +13,9 @@ async function handleShare(request) {
     if (file) {
         await storeSharedFile();
         console.log("Received file:", file.name, file.size, file.type);
+    } else {
+        console.log("file not received")
     }
-
     return Response.redirect("/?shared=true", 303);
 }
 
