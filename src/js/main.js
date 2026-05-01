@@ -354,6 +354,7 @@ dom.messageInput.addEventListener("keypress", (e) => {
 
 dom.fileInput.addEventListener("change", (e) => {
     const files = e.target.files;
+    fileMetadata = files;
     const fileNames = Array.from(files)
         .map((f) => f.name)
         .join(", ");
