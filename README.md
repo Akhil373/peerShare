@@ -46,3 +46,5 @@ cd webrtc-share && pnpm i && pnpm start
 - [ ] connection indication on remote peer
 - [x] multi-file support
 - [ ] show transfer speeds
+- [x] share-target on android
+- [ ] qr reader on mobile
