@@ -356,10 +356,10 @@ dom.fileInput.addEventListener("change", (e) => {
     const files = e.target.files;
     fileMetadata = files;
     const fileNames = Array.from(files)
-        .map((f) => f.name)
-        .join(", ");
-    document.getElementById("file-input-label").textContent = files.length
-        ? `📁 ${fileNames}`
+        .map((f, i) => `${i + 1}. ${f.name}`)
+        .join("<br>");
+    document.getElementById("file-input-label").innerHTML = files.length
+        ? `📁 Selected Files...<br>${fileNames}`
         : "";
 });
 
