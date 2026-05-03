@@ -276,13 +276,14 @@ dom.createBtn.addEventListener("click", () => {
 });
 
 dom.joinBtn.addEventListener("click", () => {
-    const ROOM_CODE = dom.roomInput.value.trim();
+    const ROOM_CODE = dom.roomInput.value.trim().toUpperCase();
     if (!ROOM_CODE || (ROOM_CODE.length !== 6 && ROOM_CODE !== "lan")) {
         alert("Enter a valid room code");
         return;
     }
     ROOM_ID = ROOM_CODE;
     location.hash = ROOM_ID;
+    dom.roomCode.querySelector('span:last-child').textContent = ROOM_ID.slice(0, 3) + '-' + ROOM_ID.slice(3);
     pc = setupPeerConnection();
     if (ws && ws.readyState === WebSocket.OPEN) {
         sendWsMessage(ws, { type: "join-room", roomId: ROOM_ID });
@@ -311,7 +312,7 @@ dom.shareBtn.addEventListener("click", () => {
         colorLight: "#3c3836",
     });
 
-    document.getElementById("room-id").textContent = ROOM_ID;
+    document.getElementById("room-id").textContent = ROOM_ID.slice(0, 3) + '-' + ROOM_ID.slice(3);
 });
 
 dom.shareModal.addEventListener("click", (e) => {
@@ -418,7 +419,11 @@ document.addEventListener("visibilitychange", () => {
 updateWsStatus(false);
 startWebsocket();
 
-if (isLAN) dom.shareBtn.classList.add("hidden");
+if (isLAN) {
+    dom.shareBtn.classList.add("hidden");
+    dom.roomCode.classList.add('!hidden');
+    console.log(isLAN);
+}
 if (urlRoom) {
     dom.roomInput.value = urlRoom;
     dom.joinBtn.click();
