@@ -1,29 +1,41 @@
 {
-  "name": "webrtc",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "cd src/webrtc-signaling && node server.js",
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
-  },
-  "keywords": [],
-  "type": "module",
-  "author": "",
-  "license": "ISC",
-  "packageManager": "pnpm@10.19.0",
-  "dependencies": {
-    "dotenv": "^17.2.3",
-    "nanoid": "^5.1.6",
-    "ws": "^8.18.3"
-  },
-  "devDependencies": {
-    "@tailwindcss/cli": "^4.1.17",
-    "live-server": "^1.2.2",
-    "tailwindcss": "^4.1.17",
-    "vite": "^7.2.7"
-  }
+    "name": "webrtc",
+    "version": "1.0.0",
+    "description": "",
+    "main": "index.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "start": "cd src/webrtc-signaling && node server.js",
+        "dev": "vite",
+        "build": "vite build",
+        "preview": "vite preview",
+        "prepare": "husky"
+    },
+    "lint-staged": {
+        "*.{js,jsx,ts,tsx}": [
+            "prettier --write",
+            "eslint --fix"
+        ]
+    },
+    "keywords": [],
+    "type": "module",
+    "author": "",
+    "license": "ISC",
+    "packageManager": "pnpm@10.19.0",
+    "dependencies": {
+        "dotenv": "^17.2.3",
+        "nanoid": "^5.1.6",
+        "ws": "^8.18.3"
+    },
+    "devDependencies": {
+        "@tailwindcss/cli": "^4.1.17",
+        "eslint": "^10.3.0",
+        "eslint-plugin-import": "^2.32.0",
+        "husky": "^9.1.7",
+        "lint-staged": "^16.4.0",
+        "live-server": "^1.2.2",
+        "prettier": "^3.8.3",
+        "tailwindcss": "^4.1.17",
+        "vite": "^7.2.7"
+    }
 }
