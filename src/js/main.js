@@ -1,18 +1,18 @@
-import * as dom from "./dom.js";
-import { getUserDetails, requestLock, openDb } from "./utils.js";
-import { updatePeersList, updateWsStatus } from "./ui.js";
+import * as dom from './dom.js';
+import { getUserDetails, requestLock, openDb } from './utils.js';
+import { updatePeersList, updateWsStatus } from './ui.js';
 import {
     connectWebsocket,
     sendWsMessage,
     scheduleReconnect,
-} from "./websocket.js";
+} from './websocket.js';
 import {
     initPeerConnection,
     attachDcHandler,
     sendDcMessage,
     sendFiles,
     makeCall,
-} from "./webrtc.js";
+} from './webrtc.js';
 
 let pc;
 let dc;
@@ -25,15 +25,15 @@ let ws = null;
 let isManuallyClosed = false;
 let pendingRoom = null;
 
-const isLAN = new URLSearchParams(location.search).get("mode") === "lan";
-let ROOM_ID = new URLSearchParams(location.search).get("roomId");
+const isLAN = new URLSearchParams(location.search).get('mode') === 'lan';
+let ROOM_ID = new URLSearchParams(location.search).get('roomId');
 const urlRoom = location.hash.slice(1);
 
-const ALPHABET = "abcdefghijklmnopqrstuvwxyz";
+const ALPHABET = 'abcdefghijklmnopqrstuvwxyz';
 function generateCode(len = 6) {
     const bytes = new Uint8Array(len);
     crypto.getRandomValues(bytes);
-    let code = "";
+    let code = '';
     for (let i = 0; i < len; i++) code += ALPHABET[bytes[i] % 26];
     return code;
 }
@@ -42,21 +42,20 @@ function handleWsOpen() {
     updateWsStatus(true);
     const { browser, deviceType, os } = getUserDetails();
     console.log(browser, deviceType);
-    const emoji =
-        deviceType.toLowerCase() === "desktop" ? "🖥️" : "📱";
+    const emoji = deviceType.toLowerCase() === 'desktop' ? '🖥️' : '📱';
     const myName = `${emoji} ${os} ${browser}`;
     dom.nameEl.textContent = myName;
     sendWsMessage(ws, {
-        type: "register",
+        type: 'register',
         name: myName,
     });
 
     if (ROOM_ID) {
-        sendWsMessage(ws, { type: "join-room", roomId: ROOM_ID });
+        sendWsMessage(ws, { type: 'join-room', roomId: ROOM_ID });
         pc = setupPeerConnection();
     }
     if (pendingRoom) {
-        sendWsMessage(ws, { type: "join-room", roomId: pendingRoom });
+        sendWsMessage(ws, { type: 'join-room', roomId: pendingRoom });
         pendingRoom = null;
     }
 }
@@ -65,8 +64,8 @@ async function handleWsMessage(event) {
     const message = JSON.parse(event.data);
     if (message.yourID) {
         myId = message.yourID;
-        sessionStorage.setItem("my_socket_id", myId);
-        console.log("socket_id:", myId);
+        sessionStorage.setItem('my_socket_id', myId);
+        console.log('socket_id:', myId);
         dom.myIdEl.forEach((element) => {
             element.textContent = myId;
         });
@@ -75,11 +74,11 @@ async function handleWsMessage(event) {
 
     if (message.from === myId) return;
     switch (message.type) {
-        case "joined":
-            document.getElementById("join-room").classList.add("hidden");
-            document.getElementById("main-ui").classList.remove("hidden");
+        case 'joined':
+            document.getElementById('join-room').classList.add('hidden');
+            document.getElementById('main-ui').classList.remove('hidden');
             break;
-        case "clientsList":
+        case 'clientsList':
             peerList = message.content || [];
             updatePeersList(peerList, myId, handleSelectPeer);
             if (
@@ -88,33 +87,33 @@ async function handleWsMessage(event) {
                 !isLAN
             ) {
                 dom.notify.textContent = `📌 Share this room to other device! ⤵️`;
-                dom.notify.classList.remove("hidden");
+                dom.notify.classList.remove('hidden');
             }
             break;
-        case "offer":
+        case 'offer':
             if (!pc) pc = setupPeerConnection();
             await pc.setRemoteDescription(new RTCSessionDescription(message));
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
             sendWsMessage(ws, {
-                type: "answer",
+                type: 'answer',
                 sdp: answer.sdp,
                 from: myId,
                 to: message.from,
                 roomId: message.roomId,
             });
             break;
-        case "answer":
+        case 'answer':
             await pc.setRemoteDescription(new RTCSessionDescription(message));
             break;
-        case "ice-candidate":
+        case 'ice-candidate':
             await pc.addIceCandidate(new RTCIceCandidate(message.candidate));
             break;
     }
 }
 
 function handleWsClose() {
-    console.log("WebSocket connection closed!", "warning");
+    console.log('WebSocket connection closed!', 'warning');
     if (!isManuallyClosed) {
         scheduleReconnect();
     }
@@ -138,7 +137,7 @@ function startWebsocket(id) {
 
 function handleIceCandidate(candidate) {
     sendWsMessage(ws, {
-        type: "ice-candidate",
+        type: 'ice-candidate',
         candidate,
         from: myId,
         to: targetId,
@@ -170,37 +169,37 @@ const connectFunc = async () => {
         const { offer, dc: newDc } = await makeCall(pc, handleDataChannel);
         dc = newDc;
         sendWsMessage(ws, {
-            type: "offer",
+            type: 'offer',
             sdp: offer.sdp,
             from: myId,
             to: targetId,
             roomId: ROOM_ID,
         });
     }
-}
+};
 
 const waitForDc = (dc) => {
     return new Promise((resolve, reject) => {
         if (dc.readyState === 'open') return resolve();
-        const timer = setTimeout(() => reject(new Error('DC open timeout')), 10000);
-
+        const timer = setTimeout(
+            () => reject(new Error('DC open timeout')),
+            10000,
+        );
 
         dc.addEventListener('open', () => {
             clearTimeout(timer);
             resolve();
-        })
+        });
 
         dc.addEventListener('error', (e) => {
             clearTimeout(timer);
             reject(e);
-        })
-
-    })
-}
-
+        });
+    });
+};
 
 const shareFiles = async () => {
-    await sendFiles(dc, fileMetadata)
+    await sendFiles(dc, fileMetadata);
     if (hasSharedFile) {
         const db = await openDb();
         const tx = db.transaction('shared_files', 'readwrite');
@@ -213,21 +212,21 @@ async function handleSelectPeer(peer) {
     targetId = peer.id;
     dom.selectedPeerEl.textContent = `${peer.name} (${peer.id})`;
 
-    const peerItems = dom.peersListEl.querySelectorAll(".peer-item");
+    const peerItems = dom.peersListEl.querySelectorAll('.peer-item');
     peerItems.forEach((item) => {
-        item.classList.remove("selected");
-        const btn = item.querySelector(".select-btn");
-        if (btn) btn.textContent = "Select";
+        item.classList.remove('selected');
+        const btn = item.querySelector('.select-btn');
+        if (btn) btn.textContent = 'Select';
     });
 
     for (let item of peerItems) {
-        const idDiv = item.querySelector(".peer-id");
+        const idDiv = item.querySelector('.peer-id');
         if (idDiv && idDiv.textContent.includes(peer.id)) {
-            item.classList.add("selected");
-            const btn = item.querySelector(".select-btn");
+            item.classList.add('selected');
+            const btn = item.querySelector('.select-btn');
             if (btn) {
-                btn.textContent = "Selected";
-                btn.classList.add("selected");
+                btn.textContent = 'Selected';
+                btn.classList.add('selected');
             }
             break;
         }
@@ -238,24 +237,25 @@ async function handleSelectPeer(peer) {
 }
 
 async function checkSharedFile() {
-    if (!new URLSearchParams(location.search).has("shared")) return;
+    if (!new URLSearchParams(location.search).has('shared')) return;
 
     const db = await openDb();
-    const tx = db.transaction("shared_files", "readonly");
-    const store = tx.objectStore("shared_files");
-    const entry = await new Promise(res => {
-        const req = store.get("pending");
+    const tx = db.transaction('shared_files', 'readonly');
+    const store = tx.objectStore('shared_files');
+    const entry = await new Promise((res) => {
+        const req = store.get('pending');
         req.onsuccess = () => res(req.result);
     });
 
     if (entry?.files?.length > 0) {
         fileMetadata = entry.files;
         console.log(fileMetadata);
-        const fileNames = entry.files.map((f) => f.name).join(", ");
+        const fileNames = entry.files.map((f) => f.name).join(', ');
 
-        document.getElementById("file-input-label").textContent = `📁 ${fileNames}`;
-        document.getElementById("list-peers").classList.remove("hidden");
-        document.getElementById("file-hint").classList.add("hidden");
+        document.getElementById('file-input-label').textContent =
+            `📁 ${fileNames}`;
+        document.getElementById('list-peers').classList.remove('hidden');
+        document.getElementById('file-hint').classList.add('hidden');
 
         hasSharedFile = true;
     }
@@ -263,153 +263,154 @@ async function checkSharedFile() {
 
 checkSharedFile();
 
-
 // -- all event listenerss -----
 
-dom.createBtn.addEventListener("click", () => {
+dom.createBtn.addEventListener('click', () => {
     ROOM_ID = generateCode(6);
     location.hash = ROOM_ID;
     pc = setupPeerConnection();
     if (ws && ws.readyState === WebSocket.OPEN) {
-        sendWsMessage(ws, { type: "join-room", roomId: ROOM_ID });
+        sendWsMessage(ws, { type: 'join-room', roomId: ROOM_ID });
     }
 });
 
-dom.joinBtn.addEventListener("click", () => {
+dom.joinBtn.addEventListener('click', () => {
     const ROOM_CODE = dom.roomInput.value.trim().toUpperCase();
-    if (!ROOM_CODE || (ROOM_CODE.length !== 6 && ROOM_CODE !== "lan")) {
-        alert("Enter a valid room code");
+    if (!ROOM_CODE || (ROOM_CODE.length !== 6 && ROOM_CODE !== 'lan')) {
+        alert('Enter a valid room code');
         return;
     }
     ROOM_ID = ROOM_CODE;
     location.hash = ROOM_ID;
-    dom.roomCode.querySelector('span:last-child').textContent = ROOM_ID.slice(0, 3) + '-' + ROOM_ID.slice(3);
+    dom.roomCode.querySelector('span:last-child').textContent =
+        ROOM_ID.slice(0, 3) + '-' + ROOM_ID.slice(3);
     pc = setupPeerConnection();
     if (ws && ws.readyState === WebSocket.OPEN) {
-        sendWsMessage(ws, { type: "join-room", roomId: ROOM_ID });
+        sendWsMessage(ws, { type: 'join-room', roomId: ROOM_ID });
     } else {
         pendingRoom = ROOM_ID;
     }
 });
 
-document.getElementById("exit-btn").addEventListener("click", () => {
+document.getElementById('exit-btn').addEventListener('click', () => {
     location.href = location.origin;
 });
 
-dom.shareBtn.addEventListener("click", () => {
-    dom.notify.classList.add("hidden");
-    dom.shareModal.classList.remove("hidden");
+dom.shareBtn.addEventListener('click', () => {
+    dom.notify.classList.add('hidden');
+    dom.shareModal.classList.remove('hidden');
 
-    const qrContainer = document.getElementById("qr-code");
-    qrContainer.innerHTML = "";
+    const qrContainer = document.getElementById('qr-code');
+    qrContainer.innerHTML = '';
 
     const roomURL = window.location.href;
     new QRCode(qrContainer, {
         text: roomURL,
         width: 192,
         height: 192,
-        colorDark: "#ebdbb2",
-        colorLight: "#3c3836",
+        colorDark: '#ebdbb2',
+        colorLight: '#3c3836',
     });
 
-    document.getElementById("room-id").textContent = ROOM_ID.slice(0, 3) + '-' + ROOM_ID.slice(3);
+    document.getElementById('room-id').textContent =
+        ROOM_ID.slice(0, 3) + '-' + ROOM_ID.slice(3);
 });
 
-dom.shareModal.addEventListener("click", (e) => {
-    if (e.target === dom.shareModal) dom.shareModal.classList.add("hidden");
+dom.shareModal.addEventListener('click', (e) => {
+    if (e.target === dom.shareModal) dom.shareModal.classList.add('hidden');
 });
 
-dom.copyUrlBtn.addEventListener("click", () => {
+dom.copyUrlBtn.addEventListener('click', () => {
     navigator.clipboard
         .writeText(window.location.href)
         .then(() => {
-            dom.copyUrlBtn.textContent = "Copied!";
-            dom.copyUrlBtn.classList.remove("bg-[#3c3836]");
-            dom.copyUrlBtn.classList.add("bg-[#98971a]");
+            dom.copyUrlBtn.textContent = 'Copied!';
+            dom.copyUrlBtn.classList.remove('bg-[#3c3836]');
+            dom.copyUrlBtn.classList.add('bg-[#98971a]');
 
             setTimeout(() => {
-                dom.copyUrlBtn.textContent = "Copy Room URL";
-                dom.copyUrlBtn.classList.remove("bg-[#98971a]");
-                dom.copyUrlBtn.classList.add("bg-[#3c3836]");
+                dom.copyUrlBtn.textContent = 'Copy Room URL';
+                dom.copyUrlBtn.classList.remove('bg-[#98971a]');
+                dom.copyUrlBtn.classList.add('bg-[#3c3836]');
             }, 2000);
         })
         .catch((err) => {
-            console.error("Failed to copy:", err);
-            alert("Failed to copy URL");
+            console.error('Failed to copy:', err);
+            alert('Failed to copy URL');
         });
 });
 
-document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && !dom.shareModal.classList.contains("hidden")) {
-        dom.shareModal.classList.add("hidden");
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !dom.shareModal.classList.contains('hidden')) {
+        dom.shareModal.classList.add('hidden');
     }
 });
 
-dom.sendBtn.addEventListener("click", () => sendDcMessage(dc));
+dom.sendBtn.addEventListener('click', () => sendDcMessage(dc));
 
-dom.messageInput.addEventListener("keypress", (e) => {
-    if (e.key === "Enter") {
+dom.messageInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
         sendDcMessage(dc);
     }
 });
 
-dom.fileInput.addEventListener("change", (e) => {
+dom.fileInput.addEventListener('change', (e) => {
     const files = e.target.files;
     fileMetadata = files;
     const fileNames = Array.from(files)
         .map((f, i) => `${i + 1}. ${f.name}`)
-        .join("<br>");
-    document.getElementById("file-input-label").innerHTML = files.length
+        .join('<br>');
+    document.getElementById('file-input-label').innerHTML = files.length
         ? `📁 Selected Files...<br>${fileNames}`
-        : "";
+        : '';
 });
 
-document.getElementById("fileShare").onchange = () => {
-    document.getElementById("list-peers").classList.remove("hidden");
-    document.getElementById("file-hint").classList.add("hidden");
+document.getElementById('fileShare').onchange = () => {
+    document.getElementById('list-peers').classList.remove('hidden');
+    document.getElementById('file-hint').classList.add('hidden');
 };
 
-document.getElementById("lan-btn").onclick = () => {
+document.getElementById('lan-btn').onclick = () => {
     // location.href = "?mode=lan&roomId=lan";
     const params = new URLSearchParams(location.search);
-    params.set("mode", "lan");
-    params.set("roomId", "lan");
+    params.set('mode', 'lan');
+    params.set('roomId', 'lan');
     location.href = `?${params.toString()}`;
 };
 
-dom.dropZone.addEventListener("dragover", (e) => {
+dom.dropZone.addEventListener('dragover', (e) => {
     e.preventDefault();
-    dom.dropZone.classList.add("bg-[#473629]");
+    dom.dropZone.classList.add('bg-[#473629]');
 });
 
-dom.dropZone.addEventListener("dragleave", (e) => {
+dom.dropZone.addEventListener('dragleave', (e) => {
     e.preventDefault();
-    dom.dropZone.classList.remove("bg-[#473629]");
+    dom.dropZone.classList.remove('bg-[#473629]');
 });
 
-dom.dropZone.addEventListener("drop", (e) => {
+dom.dropZone.addEventListener('drop', (e) => {
     e.preventDefault();
     dom.fileInput.files = e.dataTransfer.files;
-    dom.fileInput.dispatchEvent(new Event("change"));
-    dom.dropZone.classList.remove("bg-[#473629]");
+    dom.fileInput.dispatchEvent(new Event('change'));
+    dom.dropZone.classList.remove('bg-[#473629]');
 });
 
-dom.fileInput.addEventListener("change", () => {
+dom.fileInput.addEventListener('change', () => {
     const file = dom.fileInput.files;
     if (file.size > 1 * 1024 * 1024 * 1024) {
         dom.notify.textContent = `Caution: Sending large files will use significant memory on the receiver's device.`;
-        dom.notify.classList.remove("hidden");
+        dom.notify.classList.remove('hidden');
         setTimeout(() => {
-            dom.notify.classList.add("hidden");
+            dom.notify.classList.add('hidden');
         }, 10_000);
     }
 });
 
-document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") {
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
         requestLock();
         if (!ws || ws.readyState !== WebSocket.OPEN) {
-            const oldId = sessionStorage.getItem("my_socket_id");
+            const oldId = sessionStorage.getItem('my_socket_id');
             startWebsocket(oldId);
         }
     }
@@ -420,7 +421,7 @@ updateWsStatus(false);
 startWebsocket();
 
 if (isLAN) {
-    dom.shareBtn.classList.add("hidden");
+    dom.shareBtn.classList.add('hidden');
     dom.roomCode.classList.add('!hidden');
     console.log(isLAN);
 }

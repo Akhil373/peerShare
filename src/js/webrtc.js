@@ -1,48 +1,48 @@
-import { logMessage, updateDcStatus } from "./ui.js";
-import { requestLock, releaseLock } from "./utils.js";
-import * as dom from "./dom.js";
+import { logMessage, updateDcStatus } from './ui.js';
+import { requestLock, releaseLock } from './utils.js';
+import * as dom from './dom.js';
 
 export const config = {
     iceServers: [
         {
-            urls: "stun:stun.relay.metered.ca:80",
+            urls: 'stun:stun.relay.metered.ca:80',
         },
         {
-            urls: "stun:stun.l.google.com:19302",
+            urls: 'stun:stun.l.google.com:19302',
         },
         {
-            urls: "turn:asia.relay.metered.ca:80",
-            username: "6d55c503e6d8ff2c6dc1a46e",
-            credential: "RXwdhSgX6CHTW4hp",
+            urls: 'turn:asia.relay.metered.ca:80',
+            username: '6d55c503e6d8ff2c6dc1a46e',
+            credential: 'RXwdhSgX6CHTW4hp',
         },
         {
-            urls: "turns:asia.relay.metered.ca:443?transport=tcp",
-            username: "6d55c503e6d8ff2c6dc1a46e",
-            credential: "RXwdhSgX6CHTW4hp",
+            urls: 'turns:asia.relay.metered.ca:443?transport=tcp',
+            username: '6d55c503e6d8ff2c6dc1a46e',
+            credential: 'RXwdhSgX6CHTW4hp',
         },
     ],
     iceCandidatePoolSize: 10,
-    iceTransportPolicy: "all",
+    iceTransportPolicy: 'all',
 };
 
 let dcBeat = null;
 const DC_BEAT_MS = 10_000;
-const DC_BEAT_MSG = JSON.stringify({ type: "dc-ping" });
+const DC_BEAT_MSG = JSON.stringify({ type: 'dc-ping' });
 
 export function initPeerConnection(isLAN, iceCallback, dcCallback) {
     const pc = new RTCPeerConnection(isLAN ? { iceServers: [] } : config);
 
     pc.oniceconnectionstatechange = () => {
         if (
-            pc.iceConnectionState === "failed" ||
-            pc.iceConnectionState === "disconnected"
+            pc.iceConnectionState === 'failed' ||
+            pc.iceConnectionState === 'disconnected'
         ) {
             logMessage(
-                "Connection failed. Try refreshing and reconnecting.",
-                "error",
+                'Connection failed. Try refreshing and reconnecting.',
+                'error',
             );
-        } else if (pc.iceConnectionState === "connected") {
-            logMessage("Peer-to-peer connection established!", "info");
+        } else if (pc.iceConnectionState === 'connected') {
+            logMessage('Peer-to-peer connection established!', 'info');
         }
     };
 
@@ -54,7 +54,7 @@ export function initPeerConnection(isLAN, iceCallback, dcCallback) {
 
     pc.ondatachannel = (event) => {
         const dc = event.channel;
-        dc.binaryType = "arraybuffer";
+        dc.binaryType = 'arraybuffer';
         dcCallback(dc);
     };
     return pc;
@@ -67,9 +67,9 @@ export function attachDcHandler(channel) {
 
     function startDcBeat() {
         stopDcBeat();
-        if (!channel || channel.readyState !== "open") return;
+        if (!channel || channel.readyState !== 'open') return;
         dcBeat = setInterval(() => {
-            if (channel.readyState === "open") channel.send(DC_BEAT_MSG);
+            if (channel.readyState === 'open') channel.send(DC_BEAT_MSG);
         }, DC_BEAT_MS);
     }
 
@@ -80,20 +80,20 @@ export function attachDcHandler(channel) {
 
     channel.onopen = () => {
         updateDcStatus(true);
-        document.getElementById("msg-panel").classList.remove("hidden");
-        document.getElementById("list-peers").classList.remove("hidden");
-        document.getElementById("file-hint").classList.add("hidden");
+        document.getElementById('msg-panel').classList.remove('hidden');
+        document.getElementById('list-peers').classList.remove('hidden');
+        document.getElementById('file-hint').classList.add('hidden');
         startDcBeat();
     };
 
     channel.onmessage = (event) => {
         const data = event.data;
 
-        if (typeof data === "string") {
+        if (typeof data === 'string') {
             try {
                 const msg = JSON.parse(data);
 
-                if (msg.type === "fileMeta") {
+                if (msg.type === 'fileMeta') {
                     requestLock();
                     receivedfileMetadata = {
                         fileIndex: msg.fileIndex,
@@ -104,14 +104,14 @@ export function attachDcHandler(channel) {
                     pendingBuffer = new Uint8Array(msg.fileSize);
                 }
             } catch (err) {
-                logMessage("Peer: " + event.data);
+                logMessage('Peer: ' + event.data);
             }
             return;
         }
 
         if (data instanceof ArrayBuffer) {
             if (!receivedfileMetadata || !pendingBuffer) {
-                console.warn("Got file blob before metadata, buffering...");
+                console.warn('Got file blob before metadata, buffering...');
                 return;
             }
 
@@ -123,13 +123,13 @@ export function attachDcHandler(channel) {
                     100,
                     (receivedBytes / receivedfileMetadata.fileSize) * 100,
                 );
-                dom.fileProgDiv.classList.remove("hidden");
+                dom.fileProgDiv.classList.remove('hidden');
                 dom.fileProg.textContent = `File ${receivedfileMetadata.fileIndex + 1} - ${percent.toFixed(1)}%`;
                 dom.progFill.style.width = `${percent}%`;
             }
             if (receivedBytes >= receivedfileMetadata.fileSize) {
                 if (dom.fileProg) {
-                    dom.fileProg.textContent = "finalizing file...";
+                    dom.fileProg.textContent = 'finalizing file...';
                 }
                 setTimeout(() => {
                     processReceivedFile();
@@ -138,12 +138,12 @@ export function attachDcHandler(channel) {
             return;
         }
 
-        logMessage("Peer: " + event.data);
+        logMessage('Peer: ' + event.data);
     };
 
     channel.onerror = (err) => {
         updateDcStatus(false);
-        console.log("Data channel error: " + err, "warning");
+        console.log('Data channel error: ' + err, 'warning');
         stopDcBeat();
     };
 
@@ -153,23 +153,23 @@ export function attachDcHandler(channel) {
         });
         pendingBuffer = null;
         if (dom.fileProg) {
-            dom.fileProg.textContent = "File received!";
+            dom.fileProg.textContent = 'File received!';
         }
 
         const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
+        const a = document.createElement('a');
         a.href = url;
         a.download = receivedfileMetadata.fileName;
 
-        const panel = document.getElementById("side-panel");
+        const panel = document.getElementById('side-panel');
         if (panel) {
             panel.appendChild(a);
-            logMessage(`File ready: ${receivedfileMetadata.fileName}`, "info");
+            logMessage(`File ready: ${receivedfileMetadata.fileName}`, 'info');
         } else {
             document.body.appendChild(a);
             logMessage(
                 `File ready: ${receivedfileMetadata.fileName} (added to body)`,
-                "warning",
+                'warning',
             );
         }
         a.click();
@@ -178,7 +178,7 @@ export function attachDcHandler(channel) {
 
         receivedfileMetadata = null;
         receivedBytes = 0;
-        channel.send(JSON.stringify({ type: "file-ack" }));
+        channel.send(JSON.stringify({ type: 'file-ack' }));
         releaseLock();
     }
 
@@ -190,17 +190,17 @@ export function attachDcHandler(channel) {
 
 export function sendDcMessage(dc) {
     const message = dom.messageInput.value.trim();
-    if (!message || !dc || dc.readyState !== "open") return;
+    if (!message || !dc || dc.readyState !== 'open') return;
     dc.send(message);
-    logMessage(`You: ${message}`, "info");
-    dom.messageInput.value = "";
-    dom.messageInput.value = "";
+    logMessage(`You: ${message}`, 'info');
+    dom.messageInput.value = '';
+    dom.messageInput.value = '';
 }
 
 export async function sendFiles(dc, fileMetadata) {
     const files = fileMetadata;
     if (!files) {
-        logMessage("Please select a file!");
+        logMessage('Please select a file!');
         return;
     }
     await requestLock();
@@ -221,7 +221,7 @@ export async function sendFiles(dc, fileMetadata) {
                 fileSize: file.size,
             };
             const metadata = {
-                type: "fileMeta",
+                type: 'fileMeta',
                 ...fileMetadata,
             };
             dc.send(JSON.stringify(metadata));
@@ -234,21 +234,24 @@ export async function sendFiles(dc, fileMetadata) {
                 if (dc.bufferedAmount > HIGH_WATER_MARK) {
                     await new Promise((resolve, reject) => {
                         const onLow = () => resolve();
-                        const onClose = () => reject(new Error("DataChannel closed"));
-                        dc.addEventListener("bufferedamountlow", onLow, { once: true });
-                        dc.addEventListener("close", onClose, { once: true });
+                        const onClose = () =>
+                            reject(new Error('DataChannel closed'));
+                        dc.addEventListener('bufferedamountlow', onLow, {
+                            once: true,
+                        });
+                        dc.addEventListener('close', onClose, { once: true });
                     });
                 }
 
                 dc.send(arrayBuf);
                 offset = end;
 
-                dom.fileProgDiv.classList.remove("hidden");
+                dom.fileProgDiv.classList.remove('hidden');
                 const progress = (offset / file.size) * 100;
                 dom.progFill.style.width = `${progress}%`;
                 dom.fileProg.textContent =
                     offset === file.size
-                        ? "File Sent!"
+                        ? 'File Sent!'
                         : `File ${index + 1} - ${progress.toFixed(1)}%`;
             }
             await waitForAck(dc);
@@ -263,25 +266,25 @@ export async function sendFiles(dc, fileMetadata) {
 function waitForAck(dc) {
     return new Promise((resolve) => {
         const handler = (event) => {
-            if (typeof event.data !== "string") return;
+            if (typeof event.data !== 'string') return;
 
             try {
                 const msg = JSON.parse(event.data);
-                if (msg.type === "file-ack") {
-                    dc.removeEventListener("message", handler);
+                if (msg.type === 'file-ack') {
+                    dc.removeEventListener('message', handler);
                     resolve();
                 }
-            } catch (err) { }
+            } catch (err) {}
         };
 
-        dc.addEventListener("message", handler);
+        dc.addEventListener('message', handler);
     });
 }
 
 export async function makeCall(pc, onDataChannel) {
     try {
-        const dc = pc.createDataChannel("data channel");
-        dc.binaryType = "arraybuffer";
+        const dc = pc.createDataChannel('data channel');
+        dc.binaryType = 'arraybuffer';
         onDataChannel(dc);
 
         const offer = await pc.createOffer();
@@ -289,7 +292,7 @@ export async function makeCall(pc, onDataChannel) {
 
         return { offer, dc };
     } catch (err) {
-        console.log(`Error creating connection: ${err}`, "error");
+        console.log(`Error creating connection: ${err}`, 'error');
         return { offer: null, dc: null };
     }
 }
