@@ -35,7 +35,7 @@ function generateCode(len = 6) {
     crypto.getRandomValues(bytes);
     let code = '';
     for (let i = 0; i < len; i++) code += ALPHABET[bytes[i] % 26];
-    return code;
+    return code.toUpperCase();
 }
 
 function handleWsOpen() {
@@ -266,8 +266,10 @@ checkSharedFile();
 // -- all event listenerss -----
 
 dom.createBtn.addEventListener('click', () => {
-    ROOM_ID = generateCode(6);
+    ROOM_ID = generateCode(6).toUpperCase();
     location.hash = ROOM_ID;
+    dom.roomCode.querySelector('span:last-child').textContent =
+        ROOM_ID.slice(0, 3) + '-' + ROOM_ID.slice(3);
     pc = setupPeerConnection();
     if (ws && ws.readyState === WebSocket.OPEN) {
         sendWsMessage(ws, { type: 'join-room', roomId: ROOM_ID });
