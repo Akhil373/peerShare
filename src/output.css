@@ -451,6 +451,10 @@
     border-style: var(--tw-border-style);
     border-width: 1px;
   }
+  .border-0 {
+    border-style: var(--tw-border-style);
+    border-width: 0px;
+  }
   .border-1 {
     border-style: var(--tw-border-style);
     border-width: 1px;
@@ -548,6 +552,9 @@
       background-color: color-mix(in oklab, var(--color-orange-500) 10%, transparent);
     }
   }
+  .bg-transparent {
+    background-color: transparent;
+  }
   .bg-\[url\(\'\/bg\.webp\'\)\] {
     background-image: url('/bg.webp');
   }
@@ -562,6 +569,9 @@
   }
   .fill-current {
     fill: currentcolor;
+  }
+  .p-0 {
+    padding: calc(var(--spacing) * 0);
   }
   .p-2 {
     padding: calc(var(--spacing) * 2);
@@ -697,6 +707,12 @@
   .uppercase {
     text-transform: uppercase;
   }
+  .underline {
+    text-decoration-line: underline;
+  }
+  .underline-offset-2 {
+    text-underline-offset: 2px;
+  }
   .placeholder-\[\#7c6f64\] {
     &::placeholder {
       color: #7c6f64;
@@ -777,6 +793,13 @@
     &:hover {
       @media (hover: hover) {
         color: #ebdbb2;
+      }
+    }
+  }
+  .hover\:opacity-80 {
+    &:hover {
+      @media (hover: hover) {
+        opacity: 80%;
       }
     }
   }

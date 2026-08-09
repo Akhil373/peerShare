@@ -64,6 +64,57 @@ export function attachDcHandler(channel) {
     let pendingBuffer = [];
     let receivedfileMetadata = null;
     let receivedBytes = 0;
+    let fileWritable = null;
+    let writeQueue = Promise.resolve();
+    let receiveReady = Promise.resolve();
+    let isProcessingFile = false;
+
+    async function prepareReceiveTarget(metadata) {
+        fileWritable = null;
+        writeQueue = Promise.resolve();
+
+        if (!('showSaveFilePicker' in window)) {
+            logMessage(
+                'Disk streaming is not supported. Using memory fallback.',
+                'warning',
+            );
+            pendingBuffer = new Uint8Array(metadata.fileSize);
+            return;
+        }
+
+        await new Promise((resolve) => {
+            const saveButton = document.createElement('button');
+            saveButton.type = 'button';
+            saveButton.className =
+                'log-info cursor-pointer border-0 bg-transparent p-0 font-inherit underline underline-offset-2 hover:opacity-80';
+            saveButton.textContent = `Choose save location: ${metadata.fileName}`;
+            saveButton.onclick = async () => {
+                saveButton.disabled = true;
+                try {
+                    const handle = await window.showSaveFilePicker({
+                        suggestedName: metadata.fileName,
+                    });
+                    fileWritable = await handle.createWritable();
+                    pendingBuffer = null;
+                    logMessage(
+                        `Streaming to disk: ${metadata.fileName}`,
+                        'info',
+                    );
+                } catch (err) {
+                    logMessage(
+                        'Using memory fallback for received file.',
+                        'warning',
+                    );
+                    pendingBuffer = new Uint8Array(metadata.fileSize);
+                }
+                saveButton.remove();
+                resolve();
+            };
+
+            dom.messageLogEl.appendChild(saveButton);
+            dom.messageLogEl.scrollTop = dom.messageLogEl.scrollHeight;
+        });
+    }
 
     function startDcBeat() {
         stopDcBeat();
@@ -86,7 +137,7 @@ export function attachDcHandler(channel) {
         startDcBeat();
     };
 
-    channel.onmessage = (event) => {
+    channel.onmessage = async (event) => {
         const data = event.data;
 
         if (typeof data === 'string') {
@@ -101,7 +152,9 @@ export function attachDcHandler(channel) {
                         fileType: msg.fileType,
                         fileSize: msg.fileSize,
                     };
-                    pendingBuffer = new Uint8Array(msg.fileSize);
+                    receiveReady = prepareReceiveTarget(receivedfileMetadata);
+                    await receiveReady;
+                    channel.send(JSON.stringify({ type: 'file-ready' }));
                 }
             } catch (err) {
                 logMessage('Peer: ' + event.data);
@@ -110,13 +163,20 @@ export function attachDcHandler(channel) {
         }
 
         if (data instanceof ArrayBuffer) {
-            if (!receivedfileMetadata || !pendingBuffer) {
+            await receiveReady;
+
+            if (!receivedfileMetadata || (!pendingBuffer && !fileWritable)) {
                 console.warn('Got file blob before metadata, buffering...');
                 return;
             }
 
             const chunk = new Uint8Array(data);
-            pendingBuffer.set(chunk, receivedBytes);
+            if (fileWritable) {
+                writeQueue = writeQueue.then(() => fileWritable.write(chunk));
+                await writeQueue;
+            } else {
+                pendingBuffer.set(chunk, receivedBytes);
+            }
             receivedBytes += chunk.byteLength;
             if (dom.fileProg) {
                 const percent = Math.min(
@@ -131,9 +191,16 @@ export function attachDcHandler(channel) {
                 if (dom.fileProg) {
                     dom.fileProg.textContent = 'finalizing file...';
                 }
-                setTimeout(() => {
-                    processReceivedFile();
-                }, 0);
+                if (!isProcessingFile) {
+                    isProcessingFile = true;
+                    setTimeout(() => {
+                        processReceivedFile().catch((err) => {
+                            logMessage(`File receive failed: ${err}`, 'error');
+                            isProcessingFile = false;
+                            releaseLock();
+                        });
+                    }, 0);
+                }
             }
             return;
         }
@@ -147,7 +214,20 @@ export function attachDcHandler(channel) {
         stopDcBeat();
     };
 
-    function processReceivedFile() {
+    async function processReceivedFile() {
+        if (fileWritable) {
+            await writeQueue;
+            await fileWritable.close();
+            logMessage(`File saved: ${receivedfileMetadata.fileName}`, 'info');
+            fileWritable = null;
+            receivedfileMetadata = null;
+            receivedBytes = 0;
+            isProcessingFile = false;
+            channel.send(JSON.stringify({ type: 'file-ack' }));
+            releaseLock();
+            return;
+        }
+
         const blob = new Blob([pendingBuffer], {
             type: receivedfileMetadata.fileType,
         });
@@ -178,6 +258,7 @@ export function attachDcHandler(channel) {
 
         receivedfileMetadata = null;
         receivedBytes = 0;
+        isProcessingFile = false;
         channel.send(JSON.stringify({ type: 'file-ack' }));
         releaseLock();
     }
@@ -225,6 +306,7 @@ export async function sendFiles(dc, fileMetadata) {
                 ...fileMetadata,
             };
             dc.send(JSON.stringify(metadata));
+            await waitForDcMessage(dc, 'file-ready');
 
             while (offset < file.size) {
                 const end = Math.min(offset + CHUNK_SIZE, file.size);
@@ -254,7 +336,7 @@ export async function sendFiles(dc, fileMetadata) {
                         ? 'File Sent!'
                         : `File ${index + 1} - ${progress.toFixed(1)}%`;
             }
-            await waitForAck(dc);
+            await waitForDcMessage(dc, 'file-ack');
             if (offset === file.size) logMessage(`Sent file: ${file.name}`);
         }
     } finally {
@@ -263,14 +345,14 @@ export async function sendFiles(dc, fileMetadata) {
     }
 }
 
-function waitForAck(dc) {
+function waitForDcMessage(dc, type) {
     return new Promise((resolve) => {
         const handler = (event) => {
             if (typeof event.data !== 'string') return;
 
             try {
                 const msg = JSON.parse(event.data);
-                if (msg.type === 'file-ack') {
+                if (msg.type === type) {
                     dc.removeEventListener('message', handler);
                     resolve();
                 }
