@@ -28,14 +28,38 @@ let pendingRoom = null;
 const isLAN = new URLSearchParams(location.search).get('mode') === 'lan';
 let ROOM_ID = new URLSearchParams(location.search).get('roomId');
 const urlRoom = location.hash.slice(1);
+const ROOM_CODE_KEY = 'roomCodes';
+
+const roomCodesList = document.createElement('datalist');
+roomCodesList.id = 'recent-room-codes';
+document.body.appendChild(roomCodesList);
+dom.roomInput.setAttribute('list', roomCodesList.id);
 
 const ALPHABET = 'abcdefghijklmnopqrstuvwxyz';
+
 function generateCode(len = 6) {
     const bytes = new Uint8Array(len);
     crypto.getRandomValues(bytes);
     let code = '';
     for (let i = 0; i < len; i++) code += ALPHABET[bytes[i] % 26];
     return code.toUpperCase();
+}
+
+function getRecentRoomCodes() {
+    try {
+        return JSON.parse(localStorage.getItem(ROOM_CODE_KEY)) || [];
+    } catch {
+        return [];
+    }
+}
+
+function saveRecentRoomCode(code) {
+    if (!code || code === 'lan') return;
+
+    const normalized = code.trim().toUpperCase();
+    const codes = getRecentRoomCodes().filter((c) => c !== normalized);
+    codes.unshift(normalized);
+    localStorage.setItem(ROOM_CODE_KEY, JSON.stringify(codes.slice(0, 3)));
 }
 
 function handleWsOpen() {
@@ -261,9 +285,28 @@ async function checkSharedFile() {
     }
 }
 
+function renderRecentRoomCodes() {
+    roomCodesList.innerHTML = '';
+
+    getRecentRoomCodes().forEach((code) => {
+        const option = document.createElement('option');
+        option.value = code;
+        roomCodesList.appendChild(option);
+    });
+}
+
 checkSharedFile();
 
 // -- all event listenerss -----
+
+dom.roomInput.addEventListener('focus', () => {
+    renderRecentRoomCodes();
+});
+
+document.getElementById('join-private-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    dom.joinBtn.click();
+});
 
 dom.createBtn.addEventListener('click', () => {
     ROOM_ID = generateCode(6).toUpperCase();
@@ -274,6 +317,8 @@ dom.createBtn.addEventListener('click', () => {
     if (ws && ws.readyState === WebSocket.OPEN) {
         sendWsMessage(ws, { type: 'join-room', roomId: ROOM_ID });
     }
+
+    saveRecentRoomCode(ROOM_ID);
 });
 
 dom.joinBtn.addEventListener('click', () => {
@@ -292,6 +337,8 @@ dom.joinBtn.addEventListener('click', () => {
     } else {
         pendingRoom = ROOM_ID;
     }
+
+    saveRecentRoomCode(ROOM_ID);
 });
 
 document.getElementById('exit-btn').addEventListener('click', () => {
