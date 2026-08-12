@@ -73,9 +73,12 @@ export function attachDcHandler(channel) {
         fileWritable = null;
         writeQueue = Promise.resolve();
 
-        if (!('showSaveFilePicker' in window)) {
+        if (
+            !('showSaveFilePicker' in window) ||
+            metadata.fileSize < 1000_000_00
+        ) {
             logMessage(
-                'Disk streaming is not supported. Using memory fallback.',
+                `Using memory fallback. File size: ${Math.round(metadata.fileSize / 1000_000)} MB.`,
                 'warning',
             );
             pendingBuffer = new Uint8Array(metadata.fileSize);
