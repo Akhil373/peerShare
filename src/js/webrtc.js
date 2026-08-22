@@ -29,6 +29,18 @@ let dcBeat = null;
 const DC_BEAT_MS = 10_000;
 const DC_BEAT_MSG = JSON.stringify({ type: 'dc-ping' });
 
+function formatSpeed(bytes, startedAt) {
+    const elapsedSeconds = (performance.now() - startedAt) / 1000;
+    if (elapsedSeconds <= 0) return '0 KBps';
+
+    const bytesPerSecond = bytes / elapsedSeconds;
+    if (bytesPerSecond >= 1_000_000) {
+        return `${(bytesPerSecond / 1_000_000).toFixed(1)} MBps`;
+    }
+
+    return `${Math.round(bytesPerSecond / 1000)} KBps`;
+}
+
 export function initPeerConnection(isLAN, iceCallback, dcCallback) {
     const pc = new RTCPeerConnection(isLAN ? { iceServers: [] } : config);
 
@@ -68,6 +80,7 @@ export function attachDcHandler(channel) {
     let writeQueue = Promise.resolve();
     let receiveReady = Promise.resolve();
     let isProcessingFile = false;
+    let receiveStartedAt = 0;
 
     async function prepareReceiveTarget(metadata) {
         fileWritable = null;
@@ -155,6 +168,7 @@ export function attachDcHandler(channel) {
                         fileType: msg.fileType,
                         fileSize: msg.fileSize,
                     };
+                    receiveStartedAt = 0;
                     receiveReady = prepareReceiveTarget(receivedfileMetadata);
                     await receiveReady;
                     channel.send(JSON.stringify({ type: 'file-ready' }));
@@ -174,6 +188,7 @@ export function attachDcHandler(channel) {
             }
 
             const chunk = new Uint8Array(data);
+            if (!receiveStartedAt) receiveStartedAt = performance.now();
             if (fileWritable) {
                 writeQueue = writeQueue.then(() => fileWritable.write(chunk));
                 await writeQueue;
@@ -186,8 +201,9 @@ export function attachDcHandler(channel) {
                     100,
                     (receivedBytes / receivedfileMetadata.fileSize) * 100,
                 );
+                const speed = formatSpeed(receivedBytes, receiveStartedAt);
                 dom.fileProgDiv.classList.remove('hidden');
-                dom.fileProg.textContent = `File ${receivedfileMetadata.fileIndex + 1} - ${percent.toFixed(1)}%`;
+                dom.fileProg.textContent = `File ${receivedfileMetadata.fileIndex + 1} - ${percent.toFixed(1)}% (${speed})`;
                 dom.progFill.style.width = `${percent}%`;
             }
             if (receivedBytes >= receivedfileMetadata.fileSize) {
@@ -225,6 +241,7 @@ export function attachDcHandler(channel) {
             fileWritable = null;
             receivedfileMetadata = null;
             receivedBytes = 0;
+            receiveStartedAt = 0;
             isProcessingFile = false;
             channel.send(JSON.stringify({ type: 'file-ack' }));
             releaseLock();
@@ -261,6 +278,7 @@ export function attachDcHandler(channel) {
 
         receivedfileMetadata = null;
         receivedBytes = 0;
+        receiveStartedAt = 0;
         isProcessingFile = false;
         channel.send(JSON.stringify({ type: 'file-ack' }));
         releaseLock();
@@ -296,6 +314,7 @@ export async function sendFiles(dc, fileMetadata) {
     try {
         for (const [index, file] of Array.from(files).entries()) {
             let offset = 0;
+            let sendStartedAt = 0;
             console.log(index);
 
             fileMetadata = {
@@ -310,6 +329,7 @@ export async function sendFiles(dc, fileMetadata) {
             };
             dc.send(JSON.stringify(metadata));
             await waitForDcMessage(dc, 'file-ready');
+            sendStartedAt = performance.now();
 
             while (offset < file.size) {
                 const end = Math.min(offset + CHUNK_SIZE, file.size);
@@ -333,11 +353,12 @@ export async function sendFiles(dc, fileMetadata) {
 
                 dom.fileProgDiv.classList.remove('hidden');
                 const progress = (offset / file.size) * 100;
+                const speed = formatSpeed(offset, sendStartedAt);
                 dom.progFill.style.width = `${progress}%`;
                 dom.fileProg.textContent =
                     offset === file.size
-                        ? 'File Sent!'
-                        : `File ${index + 1} - ${progress.toFixed(1)}%`;
+                        ? `File Sent! (${speed})`
+                        : `File ${index + 1} - ${progress.toFixed(1)}% (${speed})`;
             }
             await waitForDcMessage(dc, 'file-ack');
             if (offset === file.size) logMessage(`Sent file: ${file.name}`);
