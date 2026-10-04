@@ -25,7 +25,6 @@ No frameworks, no build step, no tracking.
 <img width="2440" height="1603" alt="Screenshot 2025-10-25 at 12-32-39 WebRTC Peer2Peer Connection" src="https://github.com/user-attachments/assets/018119b5-d26b-41cf-ad28-815098f4bc35" /></td>
   <td><img width="2438" height="1603" alt="Screenshot 2025-10-25 at 12-31-59 WebRTC Peer2Peer Connection" src="https://github.com/user-attachments/assets/41656b51-6f93-44c4-88d0-be0da3290249" /></td>
 </table>
-also yes, I love gruvbox.
 
 ## stack
 

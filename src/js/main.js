@@ -37,6 +37,64 @@ dom.roomInput.setAttribute('list', roomCodesList.id);
 
 const ALPHABET = 'abcdefghijklmnopqrstuvwxyz';
 
+function renderSelectedFiles(files) {
+    const selectedFiles = Array.from(files || []);
+    const fileLabel = document.getElementById('file-input-label');
+
+    if (!selectedFiles.length) return;
+
+    const totalBytes = selectedFiles.reduce(
+        (total, file) => total + file.size,
+        0,
+    );
+    const formatFileSize = (bytes) => {
+        if (bytes < 1024 * 1024)
+            return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+        if (bytes < 1024 * 1024 * 1024)
+            return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+        return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+    };
+
+    const icon = document.createElement('span');
+    icon.className = 'file-picker-icon';
+    icon.setAttribute('aria-hidden', 'true');
+    icon.textContent = '✓';
+
+    const title = document.createElement('span');
+    title.className = 'file-picker-title';
+    title.textContent = `${selectedFiles.length} ${selectedFiles.length === 1 ? 'file' : 'files'} ready`;
+
+    const summary = document.createElement('span');
+    summary.className = 'selected-file-summary';
+    summary.textContent = `${formatFileSize(totalBytes)} total`;
+
+    const names = document.createElement('div');
+    names.className = 'selected-file-list';
+    selectedFiles.slice(0, 3).forEach((file) => {
+        const name = document.createElement('span');
+        name.className = 'selected-file-name';
+        name.textContent = file.name;
+        names.appendChild(name);
+    });
+
+    if (selectedFiles.length > 3) {
+        const more = document.createElement('span');
+        more.className = 'selected-file-more';
+        more.textContent = `+ ${selectedFiles.length - 3} more`;
+        names.appendChild(more);
+    }
+
+    fileLabel.replaceChildren(icon, title, summary, names);
+}
+
+function unlockPeerStage() {
+    const peerStage = document.getElementById('list-peers');
+    peerStage.removeAttribute('inert');
+    peerStage.removeAttribute('aria-disabled');
+    peerStage.classList.remove('peer-stage-locked');
+    dom.dropZone.classList.add('has-selected-files');
+}
+
 function generateCode(len = 6) {
     const bytes = new Uint8Array(len);
     crypto.getRandomValues(bytes);
@@ -110,7 +168,7 @@ async function handleWsMessage(event) {
                 peerList.length === 1 &&
                 !isLAN
             ) {
-                dom.notify.textContent = `📌 Share this room to other device! ⤵️`;
+                dom.notify.textContent = `📌 Share this room to other device!`;
                 dom.notify.classList.remove('hidden');
             }
             break;
@@ -274,12 +332,10 @@ async function checkSharedFile() {
     if (entry?.files?.length > 0) {
         fileMetadata = entry.files;
         console.log(fileMetadata);
-        const fileNames = entry.files.map((f) => f.name).join(', ');
-
-        document.getElementById('file-input-label').textContent =
-            `📁 ${fileNames}`;
+        renderSelectedFiles(entry.files);
         document.getElementById('list-peers').classList.remove('hidden');
         document.getElementById('file-hint').classList.add('hidden');
+        unlockPeerStage();
 
         hasSharedFile = true;
     }
@@ -369,6 +425,10 @@ dom.shareModal.addEventListener('click', (e) => {
     if (e.target === dom.shareModal) dom.shareModal.classList.add('hidden');
 });
 
+document.getElementById('close-share-modal').addEventListener('click', () => {
+    dom.shareModal.classList.add('hidden');
+});
+
 dom.copyUrlBtn.addEventListener('click', () => {
     navigator.clipboard
         .writeText(window.location.href)
@@ -397,8 +457,9 @@ document.addEventListener('keydown', (e) => {
 
 dom.sendBtn.addEventListener('click', () => sendDcMessage(dc));
 
-dom.messageInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
+dom.messageInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
         sendDcMessage(dc);
     }
 });
@@ -406,17 +467,13 @@ dom.messageInput.addEventListener('keypress', (e) => {
 dom.fileInput.addEventListener('change', (e) => {
     const files = e.target.files;
     fileMetadata = files;
-    const fileNames = Array.from(files)
-        .map((f, i) => `${i + 1}. ${f.name}`)
-        .join('<br>');
-    document.getElementById('file-input-label').innerHTML = files.length
-        ? `📁 Selected Files...<br>${fileNames}`
-        : '';
+    renderSelectedFiles(files);
 });
 
 document.getElementById('fileShare').onchange = () => {
     document.getElementById('list-peers').classList.remove('hidden');
     document.getElementById('file-hint').classList.add('hidden');
+    unlockPeerStage();
 };
 
 document.getElementById('lan-btn').onclick = () => {
@@ -445,8 +502,8 @@ dom.dropZone.addEventListener('drop', (e) => {
 });
 
 dom.fileInput.addEventListener('change', () => {
-    const file = dom.fileInput.files;
-    if (file.size > 1 * 1024 * 1024 * 1024) {
+    const files = Array.from(dom.fileInput.files);
+    if (files.some((file) => file.size > 1 * 1024 * 1024 * 1024)) {
         dom.notify.textContent = `Caution: Sending large files will use significant memory on the receiver's device.`;
         dom.notify.classList.remove('hidden');
         setTimeout(() => {
@@ -471,7 +528,7 @@ startWebsocket();
 
 if (isLAN) {
     dom.shareBtn.classList.add('hidden');
-    dom.roomCode.classList.add('!hidden');
+    dom.roomCode.classList.add('hidden');
     console.log(isLAN);
 }
 if (urlRoom) {

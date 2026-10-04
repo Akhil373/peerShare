@@ -41,6 +41,32 @@ function formatSpeed(bytes, startedAt) {
     return `${Math.round(bytesPerSecond / 1000)} KBps`;
 }
 
+function formatBytes(bytes) {
+    if (bytes < 1024 * 1024)
+        return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+    if (bytes < 1024 * 1024 * 1024)
+        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+}
+
+function formatFileName(name, maxLength = 32) {
+    if (name.length <= maxLength) return name;
+    const extensionIndex = name.lastIndexOf('.');
+    const extension = extensionIndex > 0 ? name.slice(extensionIndex) : '';
+    const available = maxLength - extension.length - 1;
+    return `${name.slice(0, Math.max(8, available))}…${extension}`;
+}
+
+function formatEta(bytes, totalBytes, startedAt) {
+    if (!bytes || bytes >= totalBytes) return 'done';
+    const elapsedSeconds = (performance.now() - startedAt) / 1000;
+    const remainingSeconds = ((totalBytes - bytes) / bytes) * elapsedSeconds;
+    if (!Number.isFinite(remainingSeconds)) return 'estimating…';
+    if (remainingSeconds < 60)
+        return `${Math.max(1, Math.ceil(remainingSeconds))}s left`;
+    return `${Math.ceil(remainingSeconds / 60)}m left`;
+}
+
 export function initPeerConnection(isLAN, iceCallback, dcCallback) {
     const pc = new RTCPeerConnection(isLAN ? { iceServers: [] } : config);
 
@@ -82,6 +108,13 @@ export function attachDcHandler(channel) {
     let isProcessingFile = false;
     let receiveStartedAt = 0;
 
+    function hideReceiveSavePrompt() {
+        const prompt = document.getElementById('receive-save-prompt');
+        const control = document.getElementById('receive-save-control');
+        if (prompt) prompt.classList.add('hidden');
+        if (control) control.replaceChildren();
+    }
+
     async function prepareReceiveTarget(metadata) {
         fileWritable = null;
         writeQueue = Promise.resolve();
@@ -101,9 +134,19 @@ export function attachDcHandler(channel) {
         await new Promise((resolve) => {
             const saveButton = document.createElement('button');
             saveButton.type = 'button';
-            saveButton.className =
-                'log-info cursor-pointer border-0 bg-transparent p-0 font-inherit underline underline-offset-2 hover:opacity-80';
-            saveButton.textContent = `Choose save location: ${metadata.fileName}`;
+            saveButton.className = 'save-location-action';
+            saveButton.textContent = 'Choose save location';
+
+            const prompt = document.getElementById('receive-save-prompt');
+            const promptTitle = document.getElementById('receive-save-title');
+            const promptControl = document.getElementById(
+                'receive-save-control',
+            );
+            if (prompt) prompt.classList.remove('hidden');
+            if (promptTitle)
+                promptTitle.textContent = `Choose where to save “${metadata.fileName}”`;
+            if (promptControl) promptControl.replaceChildren(saveButton);
+
             saveButton.onclick = async () => {
                 saveButton.disabled = true;
                 try {
@@ -123,12 +166,9 @@ export function attachDcHandler(channel) {
                     );
                     pendingBuffer = new Uint8Array(metadata.fileSize);
                 }
-                saveButton.remove();
+                hideReceiveSavePrompt();
                 resolve();
             };
-
-            dom.messageLogEl.appendChild(saveButton);
-            dom.messageLogEl.scrollTop = dom.messageLogEl.scrollHeight;
         });
     }
 
@@ -147,7 +187,9 @@ export function attachDcHandler(channel) {
 
     channel.onopen = () => {
         updateDcStatus(true);
-        document.getElementById('msg-panel').classList.remove('hidden');
+        const messagePanel = document.getElementById('msg-panel');
+        messagePanel.classList.remove('hidden');
+        messagePanel.open = true;
         document.getElementById('list-peers').classList.remove('hidden');
         document.getElementById('file-hint').classList.add('hidden');
         startDcBeat();
@@ -203,7 +245,13 @@ export function attachDcHandler(channel) {
                 );
                 const speed = formatSpeed(receivedBytes, receiveStartedAt);
                 dom.fileProgDiv.classList.remove('hidden');
-                dom.fileProg.textContent = `File ${receivedfileMetadata.fileIndex + 1} - ${percent.toFixed(1)}% (${speed})`;
+                const transferred = `${formatBytes(receivedBytes)} / ${formatBytes(receivedfileMetadata.fileSize)}`;
+                const eta = formatEta(
+                    receivedBytes,
+                    receivedfileMetadata.fileSize,
+                    receiveStartedAt,
+                );
+                dom.fileProg.textContent = `${formatFileName(receivedfileMetadata.fileName)} · ${transferred} · ${speed} · ${eta}`;
                 dom.progFill.style.width = `${percent}%`;
             }
             if (receivedBytes >= receivedfileMetadata.fileSize) {
@@ -291,8 +339,8 @@ export function attachDcHandler(channel) {
 }
 
 export function sendDcMessage(dc) {
-    const message = dom.messageInput.value.trim();
-    if (!message || !dc || dc.readyState !== 'open') return;
+    const message = dom.messageInput.value;
+    if (!message.trim() || !dc || dc.readyState !== 'open') return;
     dc.send(message);
     logMessage(`You: ${message}`, 'info');
     dom.messageInput.value = '';
@@ -354,11 +402,13 @@ export async function sendFiles(dc, fileMetadata) {
                 dom.fileProgDiv.classList.remove('hidden');
                 const progress = (offset / file.size) * 100;
                 const speed = formatSpeed(offset, sendStartedAt);
+                const transferred = `${formatBytes(offset)} / ${formatBytes(file.size)}`;
+                const eta = formatEta(offset, file.size, sendStartedAt);
                 dom.progFill.style.width = `${progress}%`;
                 dom.fileProg.textContent =
                     offset === file.size
-                        ? `File Sent! (${speed})`
-                        : `File ${index + 1} - ${progress.toFixed(1)}% (${speed})`;
+                        ? `${formatFileName(file.name)} · Sent · ${transferred}`
+                        : `${formatFileName(file.name)} · ${transferred} · ${speed} · ${eta}`;
             }
             await waitForDcMessage(dc, 'file-ack');
             if (offset === file.size) logMessage(`Sent file: ${file.name}`);
