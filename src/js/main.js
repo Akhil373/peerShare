@@ -168,7 +168,7 @@ async function handleWsMessage(event) {
                 peerList.length === 1 &&
                 !isLAN
             ) {
-                dom.notify.textContent = `📌 Share this room to other device! ⤵️`;
+                dom.notify.textContent = `📌 Share this room to other device!`;
                 dom.notify.classList.remove('hidden');
             }
             break;
