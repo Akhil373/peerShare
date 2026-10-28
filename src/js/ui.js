@@ -3,29 +3,10 @@ import * as dom from './dom.js';
 export function logMessage(message, type = 'info') {
     const now = new Date();
     const timeString = `[${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}]`;
-    const isOutgoing = message.startsWith('You: ');
-    const isIncoming = message.startsWith('Peer: ');
 
     const logEntry = document.createElement('div');
-    logEntry.className = isOutgoing
-        ? 'log-entry chat-message chat-message-outgoing'
-        : isIncoming
-          ? 'log-entry chat-message chat-message-incoming'
-          : 'log-entry activity-event';
-
-    const time = document.createElement('span');
-    time.className = 'log-time';
-    time.textContent = timeString;
-
-    const content = document.createElement('span');
-    content.className = isOutgoing || isIncoming ? 'chat-copy' : `log-${type}`;
-    content.textContent = isOutgoing
-        ? message.slice(5)
-        : isIncoming
-          ? message.slice(6)
-          : message;
-
-    logEntry.append(time, content);
+    logEntry.className = `log-entry`;
+    logEntry.innerHTML = `<span class="log-time">${timeString}</span> <span class="log-${type}">${message}</span>`;
 
     dom.messageLogEl.appendChild(logEntry);
     dom.messageLogEl.scrollTop = dom.messageLogEl.scrollHeight;
@@ -52,30 +33,19 @@ export function updatePeersList(peers, myId, selectPeerCallback) {
         if (peer.id !== myId) {
             const peerItem = document.createElement('button');
             peerItem.className = 'peer-item';
+            peerItem.style.setProperty(
+                '--random-x',
+                `${Math.random() * 4 - 2} px`,
+            );
+            peerItem.style.setProperty(
+                '--random-y',
+                `${Math.random() * 4 - 2} px`,
+            );
 
-            const peerIcon = document.createElement('span');
-            peerIcon.className = 'peer-device-icon';
-            peerIcon.setAttribute('aria-hidden', 'true');
-            peerIcon.textContent = peer.name?.includes('📱') ? '▯' : '▱';
-
-            const peerInfo = document.createElement('span');
-            peerInfo.className = 'peer-info';
-
-            const peerName = document.createElement('span');
-            peerName.className = 'peer-name';
-            peerName.textContent = peer.name || 'Unknown device';
-
-            const peerId = document.createElement('span');
-            peerId.className = 'peer-id';
-            peerId.textContent = `ID: ${peer.id}`;
-
-            const peerAction = document.createElement('span');
-            peerAction.className = 'peer-action';
-            peerAction.textContent = 'Send to this device →';
-
-            peerInfo.append(peerName, peerId, peerAction);
+            const peerInfo = document.createElement('div');
+            peerInfo.innerHTML = `<div class="peer-name">${peer.name || 'Unknown'}</div><div class="peer-id">ID: ${peer.id}</div>`;
             peerItem.onclick = () => selectPeerCallback(peer);
-            peerItem.append(peerIcon, peerInfo);
+            peerItem.appendChild(peerInfo);
             dom.peersListEl.appendChild(peerItem);
         }
     });
