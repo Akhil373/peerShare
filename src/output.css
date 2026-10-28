@@ -555,6 +555,15 @@
   .bg-transparent {
     background-color: transparent;
   }
+  .bg-\[linear-gradient\(rgba\(0\,0\,0\,0\.1\)\,rgba\(0\,0\,0\,0\.1\)\)\,url\(\'\/bg\.webp\'\)\] {
+    background-image: linear-gradient(rgba(0,0,0,0.1),rgba(0,0,0,0.1)),url('/bg.webp');
+  }
+  .bg-\[linear-gradient\(rgba\(0\,0\,0\,0\.4\)\,rgba\(0\,0\,0\,0\.4\)\)\,url\(\'\/bg\.webp\'\)\] {
+    background-image: linear-gradient(rgba(0,0,0,0.4),rgba(0,0,0,0.4)),url('/bg.webp');
+  }
+  .bg-\[linear-gradient\(rgba\(0\,0\,0\,0\.6\)\,rgba\(0\,0\,0\,0\.6\)\)\,url\(\'\/bg\.webp\'\)\] {
+    background-image: linear-gradient(rgba(0,0,0,0.6),rgba(0,0,0,0.6)),url('/bg.webp');
+  }
   .bg-\[url\(\'\/bg\.webp\'\)\] {
     background-image: url('/bg.webp');
   }
@@ -908,6 +917,11 @@
   .md\:gap-6 {
     @media (width >= 48rem) {
       gap: calc(var(--spacing) * 6);
+    }
+  }
+  .md\:bg-\[linear-gradient\(rgba\(0\,0\,0\,0\.4\)\,rgba\(0\,0\,0\,0\.4\)\)\,url\(\'\/bg1\.webp\'\)\] {
+    @media (width >= 48rem) {
+      background-image: linear-gradient(rgba(0,0,0,0.4),rgba(0,0,0,0.4)),url('/bg1.webp');
     }
   }
   .md\:bg-\[url\(\'\/bg1\.webp\'\)\] {
