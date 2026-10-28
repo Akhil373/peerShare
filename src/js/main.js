@@ -168,7 +168,7 @@ async function handleWsMessage(event) {
                 peerList.length === 1 &&
                 !isLAN
             ) {
-                dom.notify.textContent = `📌 Share this room to other device!`;
+                dom.notify.textContent = `📌 Share this room to other device! ⤵️`;
                 dom.notify.classList.remove('hidden');
             }
             break;
@@ -413,29 +413,13 @@ dom.shareBtn.addEventListener('click', () => {
         text: roomURL,
         width: 192,
         height: 192,
-        colorDark: '#080808',
-        colorLight: '#f3f0e8',
+        colorDark: '#ebdbb2',
+        colorLight: '#3c3836',
     });
 
     document.getElementById('room-id').textContent =
         ROOM_ID.slice(0, 3) + '-' + ROOM_ID.slice(3);
 });
-
-document
-    .getElementById('copy-code-btn')
-    .addEventListener('click', async (e) => {
-        const button = e.currentTarget;
-        try {
-            await navigator.clipboard.writeText(ROOM_ID);
-            button.textContent = 'Copied';
-            setTimeout(() => {
-                button.textContent = 'Copy code';
-            }, 1800);
-        } catch (err) {
-            console.error('Failed to copy room code:', err);
-            alert('Failed to copy room code');
-        }
-    });
 
 dom.shareModal.addEventListener('click', (e) => {
     if (e.target === dom.shareModal) dom.shareModal.classList.add('hidden');
@@ -502,27 +486,19 @@ document.getElementById('lan-btn').onclick = () => {
 
 dom.dropZone.addEventListener('dragover', (e) => {
     e.preventDefault();
-    dom.dropZone.classList.add('is-dragging');
+    dom.dropZone.classList.add('bg-[#473629]');
 });
 
 dom.dropZone.addEventListener('dragleave', (e) => {
     e.preventDefault();
-    const bounds = dom.dropZone.getBoundingClientRect();
-    if (
-        e.clientX <= bounds.left ||
-        e.clientX >= bounds.right ||
-        e.clientY <= bounds.top ||
-        e.clientY >= bounds.bottom
-    ) {
-        dom.dropZone.classList.remove('is-dragging');
-    }
+    dom.dropZone.classList.remove('bg-[#473629]');
 });
 
 dom.dropZone.addEventListener('drop', (e) => {
     e.preventDefault();
     dom.fileInput.files = e.dataTransfer.files;
     dom.fileInput.dispatchEvent(new Event('change'));
-    dom.dropZone.classList.remove('is-dragging');
+    dom.dropZone.classList.remove('bg-[#473629]');
 });
 
 dom.fileInput.addEventListener('change', () => {
