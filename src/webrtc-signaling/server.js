@@ -1,4 +1,6 @@
 import { wss } from './ws-server.js';
+import { WebSocket } from 'ws';
+import ipaddr from 'ipaddr.js';
 import { nanoid } from 'nanoid';
 import url from 'node:url';
 
@@ -8,23 +10,30 @@ function heartbeat() {
     this.isAlive = true;
 }
 
-const getBaseIp = (ip) => {
-    if (!ip) return null;
+const LAN_CIDRS = (process.env.PEERSHARE_LAN_CIDRS || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((cidr) => ipaddr.parseCIDR(cidr));
 
-    // IPv4
-    if (ip.includes('.')) {
-        const parts = ip.split('.');
-        return parts.slice(0, 3).join('.');
+function normalizeIp(ip) {
+    try {
+        return ipaddr.process(ip);
+    } catch {
+        return null;
     }
+}
 
-    // IPv6
-    if (ip.includes(':')) {
-        const parts = ip.split(':');
-        return parts.slice(0, 4).join(':');
-    }
+function isSameLan(ip1, ip2) {
+    const a = normalizeIp(ip1);
+    const b = normalizeIp(ip2);
 
-    return ip;
-};
+    if (!a || !b || a.kind() !== b.kind()) return false;
+
+    return LAN_CIDRS.some(([network, prefix]) => {
+        return a.match(network, prefix) && b.match(network, prefix);
+    });
+}
 
 const broadcastClients = (roomId) => {
     const room = rooms.get(roomId);
@@ -32,16 +41,15 @@ const broadcastClients = (roomId) => {
 
     if (roomId === 'lan') {
         room.forEach((ws) => {
-            if (ws.readyState !== 1) return;
-
-            const myBaseIp = getBaseIp(ws.ip);
+            if (ws.readyState !== WebSocket.OPEN) return;
 
             const list = Array.from(room)
-                .filter((s) => {
-                    const sameIp = getBaseIp(s.ip) === myBaseIp;
-                    const valid = s.name || s.readyState === 1;
-                    return sameIp && valid;
-                })
+                .filter(
+                    (s) =>
+                        isSameLan(s.ip, ws.ip) &&
+                        Boolean(s.name) &&
+                        s.readyState === WebSocket.OPEN,
+                )
                 .map((s) => ({ id: s.id, name: s.name }));
 
             const msg = JSON.stringify({ type: 'clientsList', content: list });
@@ -49,13 +57,13 @@ const broadcastClients = (roomId) => {
         });
     } else {
         const list = Array.from(room)
-            .filter((s) => s.name || s.readyState === 1)
+            .filter((s) => Boolean(s.name) && s.readyState === WebSocket.OPEN)
             .map((s) => ({ id: s.id, name: s.name }));
 
         const msg = JSON.stringify({ type: 'clientsList', content: list });
 
         room.forEach((s) => {
-            if (s.readyState === 1) s.send(msg);
+            if (s.readyState === WebSocket.OPEN) s.send(msg);
         });
     }
 };
@@ -122,20 +130,25 @@ wss.on('connection', function connection(ws, req) {
                 if (!room) return;
 
                 if (ws.roomId === 'lan') {
-                    const myBaseIp = getBaseIp(ws.ip);
-
                     room.forEach((client) => {
-                        if (client === ws || client.readyState !== 1) return;
+                        if (
+                            client === ws ||
+                            client.readyState !== WebSocket.OPEN
+                        )
+                            return;
                         if (msg.to && client.id !== msg.to) return;
 
-                        const clientBaseIp = getBaseIp(client.ip);
-                        if (myBaseIp === clientBaseIp) {
+                        if (isSameLan(ws.ip, client.ip)) {
                             client.send(JSON.stringify(msg));
                         }
                     });
                 } else {
                     room.forEach((client) => {
-                        if (client === ws || client.readyState !== 1) return;
+                        if (
+                            client === ws ||
+                            client.readyState !== WebSocket.OPEN
+                        )
+                            return;
                         if (msg.to && client.id !== msg.to) return;
 
                         client.send(JSON.stringify(msg));
@@ -144,7 +157,9 @@ wss.on('connection', function connection(ws, req) {
                 break;
 
             case 'join-room':
+                const oldRoomID = ws.roomId;
                 leaveRoom(ws);
+                if (oldRoomID) broadcastClients(oldRoomID);
                 const { roomId } = msg;
 
                 if (!rooms.has(roomId)) rooms.set(roomId, new Set());
@@ -156,17 +171,14 @@ wss.on('connection', function connection(ws, req) {
                 break;
 
             case 'leave-room':
+                const tempRoomId = ws.roomId;
                 leaveRoom(ws);
                 ws.send(JSON.stringify({ type: 'left' }));
+                if (tempRoomId) broadcastClients(tempRoomId);
                 break;
 
             default:
-                // Broadcast to all connected clients
-                wss.clients.forEach((client) => {
-                    if (client.readyState === 1) {
-                        client.send(JSON.stringify(msg));
-                    }
-                });
+                console.warn('Unknown message type:', msg.type);
                 break;
         }
     });

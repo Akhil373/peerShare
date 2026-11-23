@@ -24,6 +24,7 @@
     "packageManager": "pnpm@10.19.0",
     "dependencies": {
         "dotenv": "^17.2.3",
+        "ipaddr.js": "^2.5.0",
         "nanoid": "^5.1.6",
         "ws": "^8.18.3"
     },
