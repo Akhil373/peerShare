@@ -28,6 +28,7 @@ export const config = {
 let dcBeat = null;
 const DC_BEAT_MS = 10_000;
 const DC_BEAT_MSG = JSON.stringify({ type: 'dc-ping' });
+let save_dir = null;
 
 function formatSpeed(bytes, startedAt) {
     const elapsedSeconds = (performance.now() - startedAt) / 1000;
@@ -72,6 +73,26 @@ export function initPeerConnection(isLAN, iceCallback, dcCallback) {
     return pc;
 }
 
+async function uniqueHandle(dir, name) {
+    const dot = name.lastIndexOf('.');
+    const base = dot > 0 ? name.slice(0, dot) : name;
+    const ext = dot > 0 ? name.slice(dot) : '';
+    let candidate = name;
+    for (let n = 1; ; n++) {
+        try {
+            await dir.getFileHandle(candidate);
+            candidate = `${base} (${n})${ext}`;
+        } catch {
+            return dir.getFileHandle(candidate, { create: true });
+        }
+    }
+}
+
+async function openWritable(fileName) {
+    const handle = await uniqueHandle(save_dir, fileName);
+    return handle.createWritable();
+}
+
 export function attachDcHandler(channel) {
     let pendingBuffer = [];
     let receivedfileMetadata = null;
@@ -98,6 +119,13 @@ export function attachDcHandler(channel) {
             return;
         }
 
+        if (save_dir) {
+            fileWritable = await openWritable(metadata.fileName);
+            logMessage(`Streaming to disk: ${metadata.fileName}`, 'info');
+            pendingBuffer = null;
+            return;
+        }
+
         await new Promise((resolve) => {
             const saveButton = document.createElement('button');
             saveButton.type = 'button';
@@ -107,22 +135,27 @@ export function attachDcHandler(channel) {
             saveButton.onclick = async () => {
                 saveButton.disabled = true;
                 try {
-                    const handle = await window.showSaveFilePicker({
-                        suggestedName: metadata.fileName,
-                    });
-                    fileWritable = await handle.createWritable();
+                    dom.notify.textContent = `📌 Share this room to other device! ⤵️`;
+                    dom.notify.classList.remove('hidden');
+
+                    save_dir = await showDirectoryPicker();
                     pendingBuffer = null;
                     logMessage(
                         `Streaming to disk: ${metadata.fileName}`,
                         'info',
                     );
+                    fileWritable = await openWritable(metadata.fileName);
                 } catch (err) {
                     logMessage(
                         'Using memory fallback for received file.',
                         'warning',
                     );
+                    console.error(err);
                     pendingBuffer = new Uint8Array(metadata.fileSize);
                 }
+
+                dom.notify.classList.add('hidden');
+
                 saveButton.remove();
                 resolve();
             };
@@ -208,7 +241,7 @@ export function attachDcHandler(channel) {
             }
             if (receivedBytes >= receivedfileMetadata.fileSize) {
                 if (dom.fileProg) {
-                    dom.fileProg.textContent = 'finalizing file...';
+                    dom.fileProg.textContent = 'All done, check logs...';
                 }
                 if (!isProcessingFile) {
                     isProcessingFile = true;
