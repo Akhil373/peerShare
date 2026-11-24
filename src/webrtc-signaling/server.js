@@ -10,12 +10,6 @@ function heartbeat() {
     this.isAlive = true;
 }
 
-const LAN_CIDRS = (process.env.PEERSHARE_LAN_CIDRS || '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean)
-    .map((cidr) => ipaddr.parseCIDR(cidr));
-
 function normalizeIp(ip) {
     try {
         return ipaddr.process(ip);
@@ -24,15 +18,19 @@ function normalizeIp(ip) {
     }
 }
 
+const isPrivate = (addr) =>
+    ['private', 'loopback', 'linkLocal', 'uniqueLocal'].includes(addr.range());
+
 function isSameLan(ip1, ip2) {
     const a = normalizeIp(ip1);
     const b = normalizeIp(ip2);
-
     if (!a || !b || a.kind() !== b.kind()) return false;
 
-    return LAN_CIDRS.some(([network, prefix]) => {
-        return a.match(network, prefix) && b.match(network, prefix);
-    });
+    if (a.kind() === 'ipv6') return a.match(b, 64); // same /64 = same LAN
+
+    if (isPrivate(a) && isPrivate(b)) return a.match(b, 24); // same private /24
+
+    return a.toString() === b.toString(); // public IPv4: same NAT = same address
 }
 
 const broadcastClients = (roomId) => {
