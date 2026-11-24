@@ -229,7 +229,7 @@ export function attachDcHandler(channel) {
 
     channel.onerror = (err) => {
         updateDcStatus(false);
-        console.log('Data channel error: ' + err, 'warning');
+        console.error('Data channel error: ' + err, 'warning');
         stopDcBeat();
     };
 
@@ -299,6 +299,24 @@ export function sendDcMessage(dc) {
     dom.messageInput.value = '';
 }
 
+const waitForDrain = (dc) =>
+    new Promise((resolve, reject) => {
+        const cleanup = () => {
+            dc.removeEventListener('bufferedamountlow', onLow);
+            dc.removeEventListener('close', onClose);
+        };
+        const onLow = () => {
+            cleanup();
+            resolve();
+        };
+        const onClose = () => {
+            cleanup();
+            reject(new Error('DataChannel closed'));
+        };
+        dc.addEventListener('bufferedamountlow', onLow);
+        dc.addEventListener('close', onClose);
+    });
+
 export async function sendFiles(dc, fileMetadata) {
     const files = fileMetadata;
     if (!files) {
@@ -306,16 +324,22 @@ export async function sendFiles(dc, fileMetadata) {
         return;
     }
     await requestLock();
+    const READ_BLOCK = 8 * 1024 * 1024;
     const CHUNK_SIZE = 64 * 1024;
-    const HIGH_WATER_MARK = 1024 * 1024;
-    const LOW_WATER_MARK = 256 * 1024;
+    const HIGH_WATER_MARK = 8 * 1024 * 1024;
+    const LOW_WATER_MARK = 1 * 1024 * 1024;
     dc.bufferedAmountLowThreshold = LOW_WATER_MARK;
+
+    const readBlock = async (file, start) =>
+        new Uint8Array(
+            await file.slice(start, start + READ_BLOCK).arrayBuffer(),
+        );
 
     try {
         for (const [index, file] of Array.from(files).entries()) {
             let offset = 0;
             let sendStartedAt = 0;
-            console.log(index);
+            let next = readBlock(file, 0);
 
             fileMetadata = {
                 fileIndex: index,
@@ -332,35 +356,32 @@ export async function sendFiles(dc, fileMetadata) {
             sendStartedAt = performance.now();
 
             while (offset < file.size) {
-                const end = Math.min(offset + CHUNK_SIZE, file.size);
-                const chunk = file.slice(offset, end);
-                const arrayBuf = await chunk.arrayBuffer();
+                const block = await next;
 
-                if (dc.bufferedAmount > HIGH_WATER_MARK) {
-                    await new Promise((resolve, reject) => {
-                        const onLow = () => resolve();
-                        const onClose = () =>
-                            reject(new Error('DataChannel closed'));
-                        dc.addEventListener('bufferedamountlow', onLow, {
-                            once: true,
-                        });
-                        dc.addEventListener('close', onClose, { once: true });
-                    });
+                offset += block.byteLength;
+                if (offset < file.size) next = readBlock(file, offset);
+
+                for (let i = 0; i < block.byteLength; i += CHUNK_SIZE) {
+                    if (dc.bufferedAmount > HIGH_WATER_MARK)
+                        await waitForDrain(dc);
+
+                    dc.send(block.subarray(i, i + CHUNK_SIZE));
                 }
-
-                dc.send(arrayBuf);
-                offset = end;
 
                 dom.fileProgDiv.classList.remove('hidden');
                 const progress = (offset / file.size) * 100;
-                const speed = formatSpeed(offset, sendStartedAt);
+                const delivered = offset - dc.bufferedAmount;
+                const speed = formatSpeed(delivered, sendStartedAt);
                 dom.progFill.style.width = `${progress}%`;
-                dom.fileProg.textContent =
-                    offset === file.size
-                        ? `File Sent! (${speed})`
-                        : `File ${index + 1} - ${progress.toFixed(1)}% (${speed})`;
+                dom.fileProg.textContent = `File ${index + 1} - ${progress.toFixed(1)}% (${speed})`;
             }
-            await waitForDcMessage(dc, 'file-ack');
+            if (file.size > 0) await waitForDcMessage(dc, 'file-ack');
+            const finalSpeed = formatSpeed(file.size, sendStartedAt);
+            dom.fileProg.textContent =
+                offset === file.size
+                    ? `File Sent! (${speed})`
+                    : `File ${index + 1} - ${progress.toFixed(1)}% (${finalSpeed})`;
+
             if (offset === file.size) logMessage(`Sent file: ${file.name}`);
         }
     } finally {
@@ -398,7 +419,7 @@ export async function makeCall(pc, onDataChannel) {
 
         return { offer, dc };
     } catch (err) {
-        console.log(`Error creating connection: ${err}`, 'error');
+        console.error(`Error creating connection: ${err}`, 'error');
         return { offer: null, dc: null };
     }
 }
