@@ -379,7 +379,7 @@ export async function sendFiles(dc, fileMetadata) {
             const finalSpeed = formatSpeed(file.size, sendStartedAt);
             dom.fileProg.textContent =
                 offset === file.size
-                    ? `File Sent! (${speed})`
+                    ? `File Sent! (${finalSpeed})`
                     : `File ${index + 1} - ${progress.toFixed(1)}% (${finalSpeed})`;
 
             if (offset === file.size) logMessage(`Sent file: ${file.name}`);
